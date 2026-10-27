@@ -20,6 +20,7 @@ const CompanyReportPage = lazy(() => import('./pages/CompanyReportPage.jsx'));
 const BroadcastsPage = lazy(() => import('./pages/BroadcastsPage.jsx'));
 const FieldRequestsPage = lazy(() => import('./pages/FieldRequestsPage.jsx'));
 import PasswordChangeDialog from './components/PasswordChangeDialog.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 const ReferralRegistrationsPage = lazy(() => import('./pages/ReferralRegistrationsPage.jsx'));
 const RecruitersPage = lazy(() => import('./pages/RecruitersPage.jsx'));
 const PublicApplicationPage = lazy(() => import('./pages/PublicApplicationPage.jsx'));
@@ -56,7 +57,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Suspense fallback={<div className="page-loading" role="status">Loading workspace…</div>}><Routes>
+        <ErrorBoundary><Suspense fallback={<div className="page-loading" role="status">Loading workspace…</div>}><Routes>
           <Route path="/apply" element={<PublicApplicationPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route
@@ -83,7 +84,8 @@ export default function App() {
           <Route path="/field-requests" element={<RequireAuth><Shell><FieldRequestsPage /></Shell></RequireAuth>} />
           <Route path="/reconciliation" element={<RequireAuth><Shell><ReconciliationPage /></Shell></RequireAuth>} />
           <Route path="/audit-log" element={<RequireAuth><Shell><AuditLogPage /></Shell></RequireAuth>} />
-        </Routes></Suspense>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes></Suspense></ErrorBoundary>
       </BrowserRouter>
     </AuthProvider>
   );

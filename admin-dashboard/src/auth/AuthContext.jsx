@@ -3,11 +3,21 @@ import client from '../api/client';
 
 const AuthContext = createContext(null);
 
+function storedUser() {
+  const raw = localStorage.getItem('authUser');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // A partially written or legacy value must never prevent access to login.
+    localStorage.removeItem('authUser');
+    localStorage.removeItem('authToken');
+    return null;
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const raw = localStorage.getItem('authUser');
-    return raw ? JSON.parse(raw) : null;
-  });
+  const [user, setUser] = useState(storedUser);
 
   async function signIn(email, password) {
     const { data } = await client.post('/auth/login', { email, password });

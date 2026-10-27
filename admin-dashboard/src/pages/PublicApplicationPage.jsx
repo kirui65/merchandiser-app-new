@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://brandsphere-backend-kgvr.onrender.com/api';
+const publicClient = axios.create({ baseURL: API_URL, timeout: 75000 });
 const educationOptions = [['KCPE', 'KCPE'], ['KCSE', 'KCSE'], ['certificate', 'Certificate'], ['diploma', 'Diploma'], ['degree', 'Degree'], ['postgraduate', 'Postgraduate'], ['other', 'Other higher']];
 const passportOptions = [['has_passport', 'I have a passport'], ['will_get_self_funded', 'I will get one myself'], ['not_ready', 'I am not ready yet']];
 const nitaOptions = [['not_paid', 'Not paid'], ['paid', 'Paid']];
@@ -22,7 +23,7 @@ export default function PublicApplicationPage() {
   useEffect(() => {
     if (!campaignSlug) return undefined;
     let active = true;
-    axios.get(`${API_URL}/public/campaigns/${encodeURIComponent(campaignSlug)}`)
+    publicClient.get(`/public/campaigns/${encodeURIComponent(campaignSlug)}`)
       .then(({ data }) => { if (active) { setCampaign(data.campaign); setState('form'); } })
       .catch(() => active && setState('unavailable'));
     return () => { active = false; };
@@ -36,7 +37,7 @@ export default function PublicApplicationPage() {
     if (!consent) { setError('Please confirm your consent before submitting.'); return; }
     setState('saving');
     try {
-      await axios.post(`${API_URL}/public/referrals`, {
+      await publicClient.post('/public/referrals', {
         ...form,
         applicantName: form.applicantName.trim(),
         applicantIdNumber: form.applicantIdNumber.trim(),
