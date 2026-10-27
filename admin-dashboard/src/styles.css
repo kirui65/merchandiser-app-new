@@ -940,6 +940,36 @@ tbody tr:hover { background: #f8fafb; box-shadow: none; }
 .recruiter-picker-tags button { width: 17px; height: 17px; padding: 0; color: #597266; background: transparent; border: 0; border-radius: 4px; font-size: 14px; line-height: 1; }
 .recruiter-picker-tags button:hover { color: #9b3936; background: #fff; }
 
+/* Campaign planning and public-ad sharing. */
+.campaign-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin: 0 0 16px; }
+.campaign-summary > div { display: grid; gap: 3px; min-height: 74px; align-content: center; padding: 12px 14px; background: #fff; border: 1px solid #dfe7e8; border-radius: 9px; }
+.campaign-summary strong { color: #254255; font-size: 23px; font-weight: 750; letter-spacing: -.04em; }
+.campaign-summary span { color: #647780; font-size: 10px; font-weight: 700; }
+.ad-link-card { margin-bottom: 16px; border-color: #cfdfd8; background: linear-gradient(120deg,#fbfdfc,#f4f9f6); }
+.ad-link-generator { display: grid; grid-template-columns: minmax(190px,.75fr) minmax(280px,1.4fr) auto; gap: 14px; align-items: end; }
+.ad-link-generator .field { min-width: 0; }
+.ad-link-preview { display: grid; min-width: 0; gap: 4px; padding: 10px 12px; background: #fff; border: 1px solid #d9e6df; border-radius: 7px; }
+.ad-link-preview > span { color: #526c64; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.ad-link-preview code { overflow: hidden; color: #254255; font-family: inherit; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.ad-link-preview small { color: #687d76; font-size: 10px; }
+.ad-link-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.ad-link-actions .ui-button { min-height: 39px; white-space: nowrap; }
+.ad-link-empty { display: grid; gap: 4px; color: #607873; font-size: 12px; }
+.ad-link-empty strong { color: #294f43; }
+.campaign-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: -2px 0 16px; }
+.campaign-toolbar label { display: grid; min-width: 130px; flex: 1 1 145px; gap: 5px; color: #405563; font-size: 10px; font-weight: 800; }
+.campaign-toolbar label:first-child { flex: 2 1 220px; }
+.campaign-toolbar input,.campaign-toolbar select { min-height: 38px; padding: 0 10px; color: #172b3a; background: #fff; border: 1px solid #d9e2e7; border-radius: 7px; font: inherit; }
+.campaign-toolbar .ui-button { min-height: 38px; }
+.campaign-result-count { margin-left: auto; padding: 0 2px 10px; color: #697b84; font-size: 11px; font-weight: 650; white-space: nowrap; }
+.campaign-table td:first-child { min-width: 220px; }
+.campaign-table td:first-child > small { display: block; max-width: 340px; margin-top: 3px; overflow: hidden; color: #72828a; font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.campaign-table td:first-child > .campaign-client { color: #3f6559; font-weight: 700; }
+.table-link-button { padding: 0; color: #2c6453; background: transparent; border: 0; border-bottom: 1px solid currentColor; cursor: pointer; font: inherit; font-size: 11px; font-weight: 750; }
+.table-link-button:hover { color: #163f54; }
+@media (max-width: 900px) { .ad-link-generator { grid-template-columns: 1fr; align-items: stretch; }.ad-link-actions .ui-button { flex: 1; }.campaign-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 600px) { .campaign-toolbar label { flex-basis: 100%; }.campaign-result-count { width: 100%; margin-left: 0; padding-bottom: 0; }.campaign-summary > div { min-height: 66px; padding: 10px; } }
+
 /* Dashboard audit fixes: consistent controls, dense data, and small-screen layouts. */
 .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .dashboard-saved-note { margin: 10px 0 0; padding: 9px 12px; color: #375d53; background: #fff7e9; border-left: 3px solid #f3b65b; border-radius: 0 8px 8px 0; font-size: 12px; }
