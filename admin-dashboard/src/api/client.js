@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://brandsphere-backend.onrender.com/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://brandsphere-backend-kgvr.onrender.com/api';
 
 const client = axios.create({ baseURL: BASE_URL });
 

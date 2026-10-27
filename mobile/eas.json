@@ -12,7 +12,7 @@
       "distribution": "internal",
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://brandsphere-backend.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://brandsphere-backend-kgvr.onrender.com/api"
       },
       "android": {
         "buildType": "apk"

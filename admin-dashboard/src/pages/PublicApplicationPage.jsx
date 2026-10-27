@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://brandsphere-backend.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://brandsphere-backend-kgvr.onrender.com/api';
 const educationOptions = [['KCPE', 'KCPE'], ['KCSE', 'KCSE'], ['certificate', 'Certificate'], ['diploma', 'Diploma'], ['degree', 'Degree'], ['postgraduate', 'Postgraduate'], ['other', 'Other higher']];
 const passportOptions = [['has_passport', 'I have a passport'], ['will_get_self_funded', 'I will get one myself'], ['not_ready', 'I am not ready yet']];
 const nitaOptions = [['not_paid', 'Not paid'], ['paid', 'Paid']];
