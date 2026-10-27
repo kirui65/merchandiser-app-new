@@ -5,6 +5,7 @@ import Button from '../components/Button';
 import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import { businessDateKey } from '../utils/businessDate';
+import { exportApplicantPaperForm } from '../utils/export';
 
 const emptyForm = {
   clientName: '',
@@ -42,7 +43,7 @@ function campaignAdUrl(campaign) {
   return `${window.location.origin}/apply?campaign=${encodeURIComponent(campaign.publicSlug)}`;
 }
 
-function AdLinkActions({ campaign, compact = false }) {
+function AdLinkActions({ campaign, compact = false, paperForm = false }) {
   const [copied, setCopied] = useState(false);
   const link = campaignAdUrl(campaign);
   const ready = campaign?.programType === 'candidate_recruitment' && campaign?.status === 'active' && Boolean(link);
@@ -61,6 +62,7 @@ function AdLinkActions({ campaign, compact = false }) {
     <Button type="button" onClick={copy} disabled={!ready}>{copied ? 'Copied!' : 'Copy ad link'}</Button>
     <Button type="button" variant="secondary" onClick={() => window.open(link, '_blank', 'noopener,noreferrer')} disabled={!ready}>Preview application</Button>
     {navigator.share ? <Button type="button" variant="secondary" onClick={() => navigator.share({ title: campaign.name, text: `Apply for ${campaign.name}`, url: link })} disabled={!ready}>Share</Button> : null}
+    {paperForm ? <Button type="button" variant="secondary" onClick={() => exportApplicantPaperForm(campaign)} disabled={!ready}>Download paper form (PDF)</Button> : null}
   </div>;
 }
 
@@ -276,11 +278,11 @@ export default function CampaignsPage() {
         <div><strong>{recruitmentCampaigns.length}</strong><span>Recruitment campaigns</span></div>
         <div><strong>{readyAdCount}</strong><span>Ad links ready</span></div>
       </section>
-      <Card className="ad-link-card" title="Generate a recruitment ad link">
+      <Card className="ad-link-card" title="Recruitment campaign materials">
         {recruitmentCampaigns.length ? <div className="ad-link-generator">
           <div className="field"><label htmlFor="ad-link-campaign">Recruitment campaign</label><select id="ad-link-campaign" value={adCampaignId || selectedAdCampaign?.id || ''} onChange={(event) => setAdCampaignId(event.target.value)}>{recruitmentCampaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name} · {readable(campaign.status)}</option>)}</select></div>
           <div className="ad-link-preview"><span>Application URL</span><code>{campaignAdUrl(selectedAdCampaign) || 'Add a public ad campaign slug to generate a link.'}</code><small>{selectedAdCampaign?.status === 'active' && selectedAdCampaign?.publicSlug ? 'Ready to share publicly.' : 'To enable this link, add a slug and set this campaign to Active.'}</small></div>
-          <AdLinkActions campaign={selectedAdCampaign} />
+          <AdLinkActions campaign={selectedAdCampaign} paperForm />
         </div> : <div className="ad-link-empty"><strong>No recruitment campaigns yet.</strong><span>Create a Candidate recruitment campaign below, then assign its public ad slug.</span></div>}
       </Card>
       <Card className="campaign-form-card" title={editing ? `Edit ${editing.name}` : 'Create campaign'}>
