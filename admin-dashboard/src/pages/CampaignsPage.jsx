@@ -62,7 +62,7 @@ function AdLinkActions({ campaign, compact = false, paperForm = false }) {
     <Button type="button" onClick={copy} disabled={!ready}>{copied ? 'Copied!' : 'Copy ad link'}</Button>
     <Button type="button" variant="secondary" onClick={() => window.open(link, '_blank', 'noopener,noreferrer')} disabled={!ready}>Preview application</Button>
     {navigator.share ? <Button type="button" variant="secondary" onClick={() => navigator.share({ title: campaign.name, text: `Apply for ${campaign.name}`, url: link })} disabled={!ready}>Share</Button> : null}
-    {paperForm ? <Button type="button" variant="secondary" onClick={() => exportApplicantPaperForm(campaign)} disabled={!ready}>Download paper form (PDF)</Button> : null}
+    {paperForm ? <Button type="button" variant="secondary" onClick={() => exportApplicantPaperForm(campaign)} disabled={!ready}>Download engagement form (PDF)</Button> : null}
   </div>;
 }
 

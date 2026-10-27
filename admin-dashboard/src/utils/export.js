@@ -170,7 +170,7 @@ export async function exportApplicantPaperForm(campaign) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(15);
     doc.setTextColor(25, 43, 69);
-    doc.text('Applicant registration form', margin, y);
+    doc.text('Applicant engagement form', margin, y);
     y += 6;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
@@ -223,7 +223,7 @@ export async function exportApplicantPaperForm(campaign) {
     doc.text(doc.splitTextToSize(instructions, contentWidth), margin, y + 4);
     doc.setFontSize(6.5); doc.setTextColor(118, 132, 153);
     doc.text(`Generated ${new Date().toLocaleDateString()} · Campaign ID: ${campaign.id || '—'}`, margin, pageHeight - 9);
-    doc.save(`brandsphere-applicant-form-${fileSlug(campaign.name)}.pdf`);
+    doc.save(`brandsphere-engagement-form-${fileSlug(campaign.name)}.pdf`);
     return true;
   } catch (error) {
     window.alert(error?.message || 'Could not create the applicant form PDF. Please try again.');
