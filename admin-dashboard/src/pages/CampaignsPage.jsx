@@ -325,7 +325,7 @@ export default function CampaignsPage() {
                 <td>{campaign.programType === 'candidate_recruitment' ? <>{`${(campaign.recruiterIds || []).length} recruiters`}{campaign.publicSlug ? <><br /><small>Ad: {campaign.publicSlug}</small></> : null}</> : `${(campaign.regionIds || []).length} regions · ${(campaign.teamIds || []).length} teams`}</td>
                 <td>{campaign.programType === 'candidate_recruitment' ? <AdLinkActions compact campaign={campaign} /> : <span className="muted">Not applicable</span>}</td>
                 <td><span className={`status-pill ${statusClass(campaign.status)}`}>{readable(campaign.status)}</span></td>
-                <td><Button variant="secondary" onClick={() => editCampaign(campaign)}>Edit</Button>{' '}{campaign.status !== 'archived' ? <Button variant="secondary" onClick={() => archive(campaign)}>Archive</Button> : null}</td>
+                <td>{campaign.programType === 'candidate_recruitment' && campaign.status === 'active' ? <><Button variant="secondary" onClick={() => exportApplicantPaperForm(campaign)}>Engagement form</Button>{' '}</> : null}<Button variant="secondary" onClick={() => editCampaign(campaign)}>Edit</Button>{' '}{campaign.status !== 'archived' ? <Button variant="secondary" onClick={() => archive(campaign)}>Archive</Button> : null}</td>
               </tr>
             ))}</tbody>
           </table></div>
