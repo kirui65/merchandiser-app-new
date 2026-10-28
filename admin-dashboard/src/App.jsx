@@ -40,7 +40,7 @@ function RequireManager({ children }) {
 
 function RequireRecruiter({ children }) {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user || user.role !== 'recruiter') return <Navigate to="/login?role=recruiter&returnTo=%2Frecruiter-portal" replace />;
   return user.role === 'recruiter' ? children : <Navigate to="/" replace />;
 }
 

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 export default function LoginPage() {
   const { signIn, verifyMfa } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('recruiter');
+  const [role, setRole] = useState(searchParams.get('role') || 'recruiter');
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [mfaChallenge, setMfaChallenge] = useState(null);
@@ -20,7 +21,7 @@ export default function LoginPage() {
     try {
       const result = await signIn(email, password, role);
       if (result.mfaRequired) { setMfaChallenge(result.challenge); setPassword(''); return; }
-      navigate(result.role === 'recruiter' ? '/recruiter-portal' : '/');
+      navigate(searchParams.get('returnTo') || (result.role === 'recruiter' ? '/recruiter-portal' : '/'));
     } catch (err) {
       setError(err?.response?.data?.error?.message || err.message || 'Login failed');
     } finally {
@@ -30,7 +31,7 @@ export default function LoginPage() {
 
   async function handleMfaSubmit(event) {
     event.preventDefault(); setError(null); setSubmitting(true);
-    try { const user = await verifyMfa(mfaChallenge, mfaCode); navigate(user.role === 'recruiter' ? '/recruiter-portal' : '/'); }
+    try { const user = await verifyMfa(mfaChallenge, mfaCode); navigate(searchParams.get('returnTo') || (user.role === 'recruiter' ? '/recruiter-portal' : '/')); }
     catch (err) { setError(err?.response?.data?.error?.message || err.message || 'Authenticator verification failed'); }
     finally { setSubmitting(false); }
   }
