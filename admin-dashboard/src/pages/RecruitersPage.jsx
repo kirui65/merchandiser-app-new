@@ -17,6 +17,7 @@ export default function RecruitersPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,6 +99,17 @@ export default function RecruitersPage() {
     finally { setSaving(false); }
   }
 
+  function generatePassword() {
+    const value = `Bs-${crypto.getRandomValues(new Uint32Array(2)).reduce((text, part) => text + part.toString(36), '')}`.slice(0, 22);
+    setForm((current) => ({ ...current, password: value }));
+    setShowPassword(true);
+  }
+
+  async function copyPassword() {
+    try { await navigator.clipboard.writeText(form.password); setNotice('New password copied. Save the account edit to apply it.'); }
+    catch { setError('Could not copy the password. Select and copy it manually.'); }
+  }
+
   return <>
     <div className="page-heading">
       <span className="eyebrow">CAMPAIGN OPERATIONS</span>
@@ -112,7 +124,7 @@ export default function RecruitersPage() {
           <div className="field"><label>Full name</label><input required maxLength={160} autoComplete="name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></div>
           <div className="field"><label>Phone</label><input required type="tel" autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></div>
           <div className="field"><label>Email (sign-in)</label><input required type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></div>
-          <div className="field"><label>{editing ? 'New password (optional)' : 'Temporary password'}</label><input required={!editing} minLength={8} type="password" autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /><small className="muted">{editing ? 'Leave blank to keep the current password. Saving a new password signs the recruiter out of other sessions.' : 'Share this securely with the recruiter.'}</small></div>
+          <div className="field"><label>{editing ? 'New password (optional)' : 'Temporary password'}</label><input required={!editing} minLength={8} type={showPassword ? 'text' : 'password'} autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /><div className="dialog-actions"><Button type="button" variant="secondary" onClick={() => setShowPassword((value) => !value)}>{showPassword ? 'Hide password' : 'Show password'}</Button><Button type="button" variant="secondary" onClick={generatePassword}>Generate password</Button>{form.password && <Button type="button" variant="secondary" onClick={copyPassword}>Copy password</Button>}</div><small className="muted">{editing ? 'Existing passwords cannot be displayed. Leave this blank to keep it, or set and save a new password to replace it.' : 'Share this securely with the recruiter.'}</small></div>
           <div className="dialog-actions"><Button type="submit" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save account' : 'Create recruiter account'}</Button>{editing && <Button variant="secondary" onClick={() => { setEditing(null); setForm(blank); }}>Cancel</Button>}</div>
         </form>
       </Card>
@@ -141,7 +153,7 @@ export default function RecruitersPage() {
             <td>{user.name}</td><td>{user.email}</td><td>{user.phone}</td>
             <td>{team?.name || (membership ? 'Assigned team unavailable' : 'Not assigned')}</td>
             <td>{assignedCampaigns.length ? <div className="assigned-campaign-list">{assignedCampaigns.map((campaign) => <span className="status-pill" key={campaign.id}>{campaign.name}</span>)}</div> : <span className="muted">No campaigns assigned</span>}</td>
-            <td>{assignedCampaigns.length ? 'Ready' : 'Campaign needed'}</td><td><div className="row-actions"><Button variant="secondary" onClick={() => { setEditing(user); setForm({ name: user.name || '', phone: user.phone || '', email: user.email || '', password: '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Edit</Button><Button variant="danger" onClick={() => deleteRecruiter(user)}>Delete</Button></div></td>
+            <td>{assignedCampaigns.length ? 'Ready' : 'Campaign needed'}</td><td><div className="row-actions"><Button variant="secondary" onClick={() => { setEditing(user); setShowPassword(false); setForm({ name: user.name || '', phone: user.phone || '', email: user.email || '', password: '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Edit</Button><Button variant="danger" onClick={() => deleteRecruiter(user)}>Delete</Button></div></td>
           </tr>;
         })}</tbody>
       </table></div> : !loading ? <EmptyState title="No recruiter accounts yet" message="Create an account above for each person recruiting campaign applicants." /> : null}
