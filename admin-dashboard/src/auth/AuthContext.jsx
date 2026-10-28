@@ -3,6 +3,12 @@ import client from '../api/client';
 
 const AuthContext = createContext(null);
 
+function assertWebAccess(user) {
+  if (user?.role === 'recruiter' && user.accessMode === 'apk') {
+    throw new Error('This account is configured for the Android APK only. Ask an administrator to enable web portal access.');
+  }
+}
+
 function storedUser() {
   const raw = localStorage.getItem('authUser');
   if (!raw) return null;
@@ -22,6 +28,7 @@ export function AuthProvider({ children }) {
   async function signIn(email, password, role) {
     const { data } = await client.post('/auth/login', { email, password, role });
     if (data.mfaRequired) return data;
+    assertWebAccess(data.user);
     if (!['manager', 'recruiter'].includes(data.user.role)) {
       throw new Error('This web workspace is available to Admin and campaign recruiter accounts');
     }
@@ -34,6 +41,7 @@ export function AuthProvider({ children }) {
   async function verifyMfa(challenge, code) {
     const { data } = await client.post('/auth/mfa/verify-login', { challenge, code });
     if (!['manager', 'recruiter'].includes(data.user.role)) throw new Error('This web workspace is available to Admin and campaign recruiter accounts');
+    assertWebAccess(data.user);
     updateSession(data);
     return data.user;
   }

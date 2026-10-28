@@ -43,6 +43,10 @@ function createSessionToken(rep) {
   return jwt.sign({ uid: rep.id, role: rep.role, authVersion: Number(rep.authVersion || 0) }, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
 }
 
+function safeUser(rep) {
+  return { id: rep.id, name: rep.name, email: rep.email, role: rep.role, accessMode: rep.accessMode || 'both' };
+}
+
 function recordLoginEvent(data) {
   return createDoc('securityEvents', data).catch(() => null);
 }
@@ -100,7 +104,7 @@ router.post('/login', loginRateLimit, async (req, res, next) => {
 
     return res.json({
       token,
-      user: { id: rep.id, name: rep.name, email: rep.email, role: rep.role },
+      user: safeUser(rep),
     });
   } catch (err) {
     return next(err);
@@ -141,7 +145,7 @@ router.post('/mfa/enable', requireAuth, mfaRateLimit, async (req, res, next) => 
     await getFirestore().collection('reps').doc(rep.id).update({ mfaEnabled: true, mfaSecretEncrypted: rep.mfaSetupSecretEncrypted, mfaSetupSecretEncrypted: admin.firestore.FieldValue.delete(), authVersion: admin.firestore.FieldValue.increment(1) });
     const updated = await getDoc('reps', rep.id);
     await recordAudit(req, { action: 'mfa_enabled', entityType: 'rep', entity: updated, changedFields: ['mfaEnabled'] }).catch(() => null);
-    return res.json({ message: 'Authenticator verification enabled', token: createSessionToken(updated), user: { id: updated.id, name: updated.name, email: updated.email, role: updated.role }, enabled: true });
+    return res.json({ message: 'Authenticator verification enabled', token: createSessionToken(updated), user: safeUser(updated), enabled: true });
   } catch (err) { return next(err); }
 });
 
@@ -157,7 +161,7 @@ router.post('/mfa/disable', requireAuth, mfaRateLimit, async (req, res, next) =>
     await getFirestore().collection('reps').doc(rep.id).update({ mfaEnabled: false, mfaSecretEncrypted: admin.firestore.FieldValue.delete(), mfaSetupSecretEncrypted: admin.firestore.FieldValue.delete(), authVersion: admin.firestore.FieldValue.increment(1) });
     const updated = await getDoc('reps', rep.id);
     await recordAudit(req, { action: 'mfa_disabled', entityType: 'rep', entity: updated, changedFields: ['mfaEnabled'] }).catch(() => null);
-    return res.json({ message: 'Authenticator verification disabled', token: createSessionToken(updated), user: { id: updated.id, name: updated.name, email: updated.email, role: updated.role }, enabled: false });
+    return res.json({ message: 'Authenticator verification disabled', token: createSessionToken(updated), user: safeUser(updated), enabled: false });
   } catch (err) { return next(err); }
 });
 
@@ -174,7 +178,7 @@ router.post('/mfa/verify-login', mfaRateLimit, async (req, res, next) => {
       throw new ApiError(401, 'Invalid authenticator code');
     }
     await recordLoginEvent({ event: 'login_succeeded', email: rep.email, actorId: rep.id, actorRole: rep.role });
-    return res.json({ token: createSessionToken(rep), user: { id: rep.id, name: rep.name, email: rep.email, role: rep.role } });
+    return res.json({ token: createSessionToken(rep), user: safeUser(rep) });
   } catch (err) { return next(err); }
 });
 
@@ -202,7 +206,7 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
     await getFirestore().collection('reps').doc(rep.id).update({ passwordHash: await bcrypt.hash(newPassword, 12), authVersion: admin.firestore.FieldValue.increment(1) });
     const updated = await getDoc('reps', rep.id);
     await recordAudit(req, { action: 'password_changed', entityType: 'rep', entity: updated, changedFields: ['password'] }).catch(() => null);
-    return res.json({ message: 'Password updated successfully', token: createSessionToken(updated), user: { id: updated.id, name: updated.name, email: updated.email, role: updated.role } });
+    return res.json({ message: 'Password updated successfully', token: createSessionToken(updated), user: safeUser(updated) });
   } catch (err) {
     return next(err);
   }
@@ -239,7 +243,7 @@ router.post('/change-email', requireAuth, async (req, res, next) => {
 
     const updated = await getDoc('reps', rep.id);
     await recordAudit(req, { action: 'email_changed', entityType: 'rep', entity: updated, changedFields: ['email'] }).catch(() => null);
-    return res.json({ message: 'Email updated successfully', token: createSessionToken(updated), user: { id: updated.id, name: updated.name, email: updated.email, role: updated.role } });
+    return res.json({ message: 'Email updated successfully', token: createSessionToken(updated), user: safeUser(updated) });
   } catch (err) {
     return next(err);
   }
@@ -255,7 +259,7 @@ router.post('/revoke-sessions', requireAuth, async (req, res, next) => {
     await getFirestore().collection('reps').doc(rep.id).update({ authVersion: admin.firestore.FieldValue.increment(1) });
     const updated = await getDoc('reps', rep.id);
     await recordAudit(req, { action: 'sessions_revoked', entityType: 'rep', entity: updated, changedFields: ['sessions'] }).catch(() => null);
-    return res.json({ message: 'Other sessions have been signed out', token: createSessionToken(updated), user: { id: updated.id, name: updated.name, email: updated.email, role: updated.role } });
+    return res.json({ message: 'Other sessions have been signed out', token: createSessionToken(updated), user: safeUser(updated) });
   } catch (err) {
     return next(err);
   }

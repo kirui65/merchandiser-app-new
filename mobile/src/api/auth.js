@@ -12,6 +12,11 @@ function assertResponseRole(user, pickedRole) {
     error.response = { status: 403, data: { error: { message: error.message } } };
     throw error;
   }
+  if (expectedRole === 'recruiter' && user.accessMode === 'web') {
+    const error = new Error('This account is configured for the web portal only');
+    error.response = { status: 403, data: { error: { message: error.message } } };
+    throw error;
+  }
 }
 
 export async function login(email, password, role) {
