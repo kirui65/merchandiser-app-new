@@ -7,6 +7,7 @@ const { createDoc, listDocs, getDoc, updateDoc } = require('../services/firestor
 const { getFirestore, admin } = require('../config/firebase');
 const { ApiError } = require('../middleware/errorHandler');
 const { recordAudit } = require('../services/audit.service');
+const { assertCanDeleteAccount } = require('../services/accountAdministration.service');
 
 const router = express.Router();
 
@@ -136,6 +137,21 @@ router.post('/:id/reset-mfa', requireManager, async (req, res, next) => {
     const rep = await updateDoc('reps', req.params.id, { mfaEnabled: false, mfaSecretEncrypted: null, mfaSetupSecretEncrypted: null, authVersion: Number(existing.authVersion || 0) + 1 });
     await recordAudit(req, { action: 'mfa_reset', entityType: 'rep', entity: rep, changedFields: ['mfaEnabled', 'sessions'] });
     return res.json({ message: `MFA reset for ${rep.name}. The account must sign in again.` });
+  } catch (err) { return next(err); }
+});
+
+router.delete('/:id', requireManager, async (req, res, next) => {
+  try {
+    const target = await getDoc('reps', req.params.id);
+    const [reps, teams] = await Promise.all([listDocs('reps'), listDocs('teams')]);
+    assertCanDeleteAccount({ target, currentUserId: req.user.uid, activeManagers: reps.filter((rep) => rep.role === 'manager' && rep.active !== false).length, ledTeams: teams.filter((team) => team.teamLeaderId === req.params.id) });
+    const db = getFirestore();
+    await db.runTransaction(async (transaction) => {
+      transaction.delete(db.collection('reps').doc(target.id));
+      transaction.delete(db.collection('repEmailIndex').doc(emailIndexId(normalizeEmail(target.email))));
+    });
+    await recordAudit(req, { action: 'deleted', entityType: 'rep', entity: target, changedFields: ['account'] });
+    return res.status(204).send();
   } catch (err) { return next(err); }
 });
 

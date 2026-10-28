@@ -19,7 +19,7 @@ export default function LoginPage() {
     try {
       const result = await signIn(email, password);
       if (result.mfaRequired) { setMfaChallenge(result.challenge); setPassword(''); return; }
-      navigate('/');
+      navigate(result.role === 'recruiter' ? '/recruiter' : '/');
     } catch (err) {
       setError(err?.response?.data?.error?.message || err.message || 'Login failed');
     } finally {
@@ -29,7 +29,7 @@ export default function LoginPage() {
 
   async function handleMfaSubmit(event) {
     event.preventDefault(); setError(null); setSubmitting(true);
-    try { await verifyMfa(mfaChallenge, mfaCode); navigate('/'); }
+    try { const user = await verifyMfa(mfaChallenge, mfaCode); navigate(user.role === 'recruiter' ? '/recruiter' : '/'); }
     catch (err) { setError(err?.response?.data?.error?.message || err.message || 'Authenticator verification failed'); }
     finally { setSubmitting(false); }
   }

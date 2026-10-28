@@ -22,8 +22,8 @@ export function AuthProvider({ children }) {
   async function signIn(email, password) {
     const { data } = await client.post('/auth/login', { email, password });
     if (data.mfaRequired) return data;
-    if (data.user.role !== 'manager') {
-      throw new Error('Only managers can access the admin dashboard');
+    if (!['manager', 'recruiter'].includes(data.user.role)) {
+      throw new Error('This web workspace is available to manager and recruiter accounts');
     }
     localStorage.setItem('authToken', data.token);
     localStorage.setItem('authUser', JSON.stringify(data.user));
@@ -33,7 +33,7 @@ export function AuthProvider({ children }) {
 
   async function verifyMfa(challenge, code) {
     const { data } = await client.post('/auth/mfa/verify-login', { challenge, code });
-    if (data.user.role !== 'manager') throw new Error('Only managers can access the admin dashboard');
+    if (!['manager', 'recruiter'].includes(data.user.role)) throw new Error('This web workspace is available to manager and recruiter accounts');
     updateSession(data);
     return data.user;
   }

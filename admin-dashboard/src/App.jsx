@@ -24,10 +24,24 @@ import ErrorBoundary from './components/ErrorBoundary.jsx';
 const ReferralRegistrationsPage = lazy(() => import('./pages/ReferralRegistrationsPage.jsx'));
 const RecruitersPage = lazy(() => import('./pages/RecruitersPage.jsx'));
 const PublicApplicationPage = lazy(() => import('./pages/PublicApplicationPage.jsx'));
+const RecruiterPortal = lazy(() => import('./pages/RecruiterPortal.jsx'));
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
-  return user ? children : <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  return user.role === 'manager' ? children : <Navigate to="/recruiter" replace />;
+}
+
+function RequireManager({ children }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return user.role === 'manager' ? children : <Navigate to="/recruiter" replace />;
+}
+
+function RequireRecruiter({ children }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return user.role === 'recruiter' ? children : <Navigate to="/" replace />;
 }
 
 function Shell({ children }) {
@@ -59,13 +73,15 @@ export default function App() {
       <BrowserRouter>
         <ErrorBoundary><Suspense fallback={<div className="page-loading" role="status">Loading workspace…</div>}><Routes>
           <Route path="/apply" element={<PublicApplicationPage />} />
+          <Route path="/engagement" element={<PublicApplicationPage variant="engagement" />} />
           <Route path="/login" element={<LoginPage />} />
           <Route
             path="/"
             element={
-              <RequireAuth><Shell><Dashboard /></Shell></RequireAuth>
+              <RequireManager><Shell><Dashboard /></Shell></RequireManager>
             }
           />
+          <Route path="/recruiter" element={<RequireRecruiter><RecruiterPortal /></RequireRecruiter>} />
           <Route path="/routes" element={<RequireAuth><Shell><RouteReplayPage /></Shell></RequireAuth>} />
           <Route path="/reps" element={<RequireAuth><Shell><RepsPage /></Shell></RequireAuth>} />
           <Route path="/products" element={<RequireAuth><Shell><ProductsPage /></Shell></RequireAuth>} />

@@ -27,6 +27,7 @@ const ReferralCreateSchema = z.object({
 // The public endpoint receives a slug rather than a trusted campaign ID.
 const WebReferralCreateSchema = ReferralCreateSchema.omit({ campaignId: true }).extend({
   campaignSlug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Enter a valid campaign link'),
+  source: z.enum(['web_ad', 'web_engagement']).optional().default('web_ad'),
   // Honeypot: browsers hide this field; submissions with a value are accepted
   // and discarded before validation so it does not become bot feedback.
   companyWebsite: z.string().max(500).optional().default(''),
@@ -36,6 +37,11 @@ const ReferralStatusUpdateSchema = z.object({
   status: ReferralStatusSchema,
   note: z.string().trim().max(1000).optional(),
 }).strict();
+
+const ReferralUpdateSchema = ReferralCreateSchema.omit({ campaignId: true, eligibleForWomenOnlyIntake: true, applicantConsent: true })
+  .partial()
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, 'Provide at least one field to update');
 
 const ReferralPaidSchema = z.object({
   paymentReference: z.string().trim().min(2).max(120),
@@ -48,6 +54,7 @@ const ReferralRecruiterAssignmentSchema = z.object({
 module.exports = {
   ReferralStatusSchema,
   ReferralCreateSchema,
+  ReferralUpdateSchema,
   WebReferralCreateSchema,
   ReferralStatusUpdateSchema,
   ReferralPaidSchema,

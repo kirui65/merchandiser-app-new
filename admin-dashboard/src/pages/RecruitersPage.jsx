@@ -16,6 +16,7 @@ export default function RecruitersPage() {
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,6 +80,24 @@ export default function RecruitersPage() {
     setSaving(false);
   }
 
+  async function saveEdit(event) {
+    event.preventDefault();
+    setSaving(true); setError(''); setNotice('');
+    try {
+      await client.put(`/reps/${editing.id}`, { name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim().toLowerCase(), role: 'recruiter' });
+      setEditing(null); setForm(blank); setNotice('Recruiter account updated.'); await load();
+    } catch (requestError) { setError(requestError.response?.data?.error?.message || 'Could not update recruiter account.'); }
+    finally { setSaving(false); }
+  }
+
+  async function deleteRecruiter(user) {
+    if (!window.confirm(`Permanently delete ${user.name}'s recruiter account?`)) return;
+    setSaving(true); setError('');
+    try { await client.delete(`/reps/${user.id}`); setNotice('Recruiter account deleted.'); await load(); }
+    catch (requestError) { setError(requestError.response?.data?.error?.message || 'Could not delete recruiter account.'); }
+    finally { setSaving(false); }
+  }
+
   return <>
     <div className="page-heading">
       <span className="eyebrow">CAMPAIGN OPERATIONS</span>
@@ -88,13 +107,13 @@ export default function RecruitersPage() {
     {error ? <div className="error-banner" role="alert">{error}</div> : null}
     {notice ? <div className="success-banner" role="status">{notice}</div> : null}
     <div className="grid-2">
-      <Card title="Create campaign recruiter">
-        <form className="form-grid" onSubmit={create}>
+      <Card title={editing ? `Edit ${editing.name}` : 'Create campaign recruiter'}>
+        <form className="form-grid" onSubmit={editing ? saveEdit : create}>
           <div className="field"><label>Full name</label><input required maxLength={160} autoComplete="name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></div>
           <div className="field"><label>Phone</label><input required type="tel" autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></div>
           <div className="field"><label>Email (sign-in)</label><input required type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></div>
-          <div className="field"><label>Temporary password</label><input required minLength={8} type="password" autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></div>
-          <Button type="submit" disabled={saving}>{saving ? 'Creating account…' : 'Create recruiter account'}</Button>
+          {!editing && <div className="field"><label>Temporary password</label><input required minLength={8} type="password" autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></div>}
+          <div className="dialog-actions"><Button type="submit" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save account' : 'Create recruiter account'}</Button>{editing && <Button variant="secondary" onClick={() => { setEditing(null); setForm(blank); }}>Cancel</Button>}</div>
         </form>
       </Card>
       <Card title="Setup steps">
@@ -112,7 +131,7 @@ export default function RecruitersPage() {
         <Button type="button" variant="secondary" onClick={() => load().catch(() => {})} disabled={loading || saving}>{loading ? 'Refreshing…' : 'Refresh'}</Button>
       </div>
       {recruiters.length ? <div className="table-wrap"><table>
-        <thead><tr><th>Recruiter</th><th>Sign-in email</th><th>Phone</th><th>Team (optional)</th><th>Assigned campaigns</th><th>Status</th></tr></thead>
+        <thead><tr><th>Recruiter</th><th>Sign-in email</th><th>Phone</th><th>Team (optional)</th><th>Assigned campaigns</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>{recruiters.map((user) => {
           const membership = currentMembership(user.id);
           const team = teams.find((item) => item.id === membership?.teamId);
@@ -122,7 +141,7 @@ export default function RecruitersPage() {
             <td>{user.name}</td><td>{user.email}</td><td>{user.phone}</td>
             <td>{team?.name || (membership ? 'Assigned team unavailable' : 'Not assigned')}</td>
             <td>{assignedCampaigns.length ? <div className="assigned-campaign-list">{assignedCampaigns.map((campaign) => <span className="status-pill" key={campaign.id}>{campaign.name}</span>)}</div> : <span className="muted">No campaigns assigned</span>}</td>
-            <td>{assignedCampaigns.length ? 'Ready' : 'Campaign needed'}</td>
+            <td>{assignedCampaigns.length ? 'Ready' : 'Campaign needed'}</td><td><div className="row-actions"><Button variant="secondary" onClick={() => { setEditing(user); setForm({ name: user.name || '', phone: user.phone || '', email: user.email || '', password: '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Edit</Button><Button variant="danger" onClick={() => deleteRecruiter(user)}>Delete</Button></div></td>
           </tr>;
         })}</tbody>
       </table></div> : !loading ? <EmptyState title="No recruiter accounts yet" message="Create an account above for each person recruiting campaign applicants." /> : null}

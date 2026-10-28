@@ -107,7 +107,7 @@ to prevent duplicate submissions.
   campaignId: string,
   recruiterId: string | null,
   teamId: string | null,
-  source: 'recruiter_app' | 'web_ad',
+  source: 'recruiter_app' | 'web_ad' | 'web_engagement',
   campaignSlug?: string, // original public-ad campaign link
   applicantName: string,
   applicantIdNumber: string,

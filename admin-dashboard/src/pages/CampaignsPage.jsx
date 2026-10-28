@@ -43,6 +43,11 @@ function campaignAdUrl(campaign) {
   return `${window.location.origin}/apply?campaign=${encodeURIComponent(campaign.publicSlug)}`;
 }
 
+function campaignEngagementUrl(campaign) {
+  if (!campaign?.publicSlug) return '';
+  return `${window.location.origin}/engagement?campaign=${encodeURIComponent(campaign.publicSlug)}`;
+}
+
 function AdLinkActions({ campaign, compact = false, paperForm = false }) {
   const [copied, setCopied] = useState(false);
   const link = campaignAdUrl(campaign);
@@ -63,6 +68,26 @@ function AdLinkActions({ campaign, compact = false, paperForm = false }) {
     <Button type="button" variant="secondary" onClick={() => window.open(link, '_blank', 'noopener,noreferrer')} disabled={!ready}>Preview application</Button>
     {navigator.share ? <Button type="button" variant="secondary" onClick={() => navigator.share({ title: campaign.name, text: `Apply for ${campaign.name}`, url: link })} disabled={!ready}>Share</Button> : null}
     {paperForm ? <Button type="button" variant="secondary" onClick={() => exportApplicantPaperForm(campaign)} disabled={!ready}>Download engagement form (PDF)</Button> : null}
+  </div>;
+}
+
+function EngagementLinkActions({ campaign }) {
+  const [copied, setCopied] = useState(false);
+  const link = campaignEngagementUrl(campaign);
+  const ready = campaign?.programType === 'candidate_recruitment' && campaign?.status === 'active' && Boolean(link);
+  const copy = async () => {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      window.prompt('Copy this engagement form link', link);
+    }
+  };
+  return <div className="ad-link-actions">
+    <Button type="button" onClick={copy} disabled={!ready}>{copied ? 'Copied!' : 'Copy online form'}</Button>
+    <Button type="button" variant="secondary" onClick={() => window.open(link, '_blank', 'noopener,noreferrer')} disabled={!ready}>Preview online form</Button>
   </div>;
 }
 
@@ -281,8 +306,10 @@ export default function CampaignsPage() {
       <Card className="ad-link-card" title="Recruitment campaign materials">
         {recruitmentCampaigns.length ? <div className="ad-link-generator">
           <div className="field"><label htmlFor="ad-link-campaign">Recruitment campaign</label><select id="ad-link-campaign" value={adCampaignId || selectedAdCampaign?.id || ''} onChange={(event) => setAdCampaignId(event.target.value)}>{recruitmentCampaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name} · {readable(campaign.status)}</option>)}</select></div>
-          <div className="ad-link-preview"><span>Application URL</span><code>{campaignAdUrl(selectedAdCampaign) || 'Add a public ad campaign slug to generate a link.'}</code><small>{selectedAdCampaign?.status === 'active' && selectedAdCampaign?.publicSlug ? 'Ready to share publicly.' : 'To enable this link, add a slug and set this campaign to Active.'}</small></div>
+          <div className="ad-link-preview"><span>Public application URL</span><code>{campaignAdUrl(selectedAdCampaign) || 'Add a public ad campaign slug to generate a link.'}</code><small>{selectedAdCampaign?.status === 'active' && selectedAdCampaign?.publicSlug ? 'Ready to share publicly.' : 'To enable this link, add a slug and set this campaign to Active.'}</small></div>
           <AdLinkActions campaign={selectedAdCampaign} paperForm />
+          <div className="ad-link-preview engagement-link-preview"><span>Online engagement form URL</span><code>{campaignEngagementUrl(selectedAdCampaign) || 'Add a public ad campaign slug to generate a link.'}</code><small>Use this for recruiter-assisted browser registrations.</small></div>
+          <EngagementLinkActions campaign={selectedAdCampaign} />
         </div> : <div className="ad-link-empty"><strong>No recruitment campaigns yet.</strong><span>Create a Candidate recruitment campaign below, then assign its public ad slug.</span></div>}
       </Card>
       <Card className="campaign-form-card" title={editing ? `Edit ${editing.name}` : 'Create campaign'}>

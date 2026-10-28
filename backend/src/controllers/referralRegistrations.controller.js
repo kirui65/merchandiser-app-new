@@ -172,7 +172,7 @@ async function assignRecruiter(req, res, next) {
       const referralSnapshot = await transaction.get(referralRef);
       if (!referralSnapshot.exists) throw new ApiError(404, 'Applicant registration not found');
       const referral = { id: referralSnapshot.id, ...referralSnapshot.data() };
-      if ((referral.source || 'recruiter_app') !== 'web_ad' || referral.recruiterId) {
+      if (!['web_ad', 'web_engagement'].includes(referral.source || 'recruiter_app') || referral.recruiterId) {
         throw new ApiError(409, 'Only unclaimed web applications can be assigned to a recruiter');
       }
       const [campaignSnapshot, recruiterSnapshot] = await Promise.all([
@@ -222,6 +222,46 @@ async function getReferral(req, res, next) {
     ]);
     events.sort((a, b) => timestampMillis(a.createdAt) - timestampMillis(b.createdAt));
     return res.json({ referral: { ...referral, recruiterName: referral.recruiterName || recruiter?.name || null, ...commissionInfo(referral, campaign) }, events });
+  } catch (err) { return next(err); }
+}
+
+async function updateReferral(req, res, next) {
+  try {
+    const db = getFirestore();
+    const ref = db.collection('referralRegistrations').doc(req.params.id);
+    const updated = await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) throw new ApiError(404, 'Applicant registration not found');
+      const referral = { id: snapshot.id, ...snapshot.data() };
+      if (!canReadReferral(req.user, referral)) throw new ApiError(403, 'You cannot edit this applicant registration');
+      if (req.user.role === 'recruiter' && referral.status !== 'submitted') throw new ApiError(409, 'Applications can only be edited before review begins');
+      const patch = { ...req.body, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+      if (patch.phone) {
+        patch.phone = normalizeKenyanPhone(patch.phone);
+        if (!patch.phone) throw new ApiError(400, 'Enter a valid Kenyan mobile number');
+      }
+      if (patch.email) patch.email = patch.email.toLowerCase();
+      transaction.update(ref, patch);
+      return { ...referral, ...patch };
+    });
+    const campaign = await getDoc('campaigns', updated.campaignId);
+    return res.json({ referral: { ...updated, ...commissionInfo(updated, campaign) } });
+  } catch (err) { return next(err); }
+}
+
+async function deleteReferral(req, res, next) {
+  try {
+    const db = getFirestore();
+    const ref = db.collection('referralRegistrations').doc(req.params.id);
+    await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists) throw new ApiError(404, 'Applicant registration not found');
+      const referral = { id: snapshot.id, ...snapshot.data() };
+      if (!canReadReferral(req.user, referral)) throw new ApiError(403, 'You cannot delete this applicant registration');
+      if (req.user.role === 'recruiter' && referral.status !== 'submitted') throw new ApiError(409, 'Applications can only be deleted before review begins');
+      transaction.delete(ref);
+    });
+    return res.status(204).send();
   } catch (err) { return next(err); }
 }
 
@@ -331,6 +371,8 @@ module.exports = {
   createReferral,
   listReferrals,
   getReferral,
+  updateReferral,
+  deleteReferral,
   updateReferralStatus,
   assignRecruiter,
   markReferralPaid,

@@ -61,7 +61,7 @@ async function createWebReferral(req, res, next) {
       teamId: null,
       recruiterId: null,
       recruiterName: null,
-      source: 'web_ad',
+      source: req.body.source || 'web_ad',
       applicantName: req.body.applicantName,
       applicantIdNumber: req.body.applicantIdNumber,
       phone,
