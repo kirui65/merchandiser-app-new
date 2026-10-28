@@ -29,6 +29,8 @@ const RepUpdateSchema = z.object({
   phone: z.string().min(1),
   email: z.string().email(),
   role: RepRoleSchema,
+  // Optional: managers only provide this when resetting an account password.
+  password: z.string().min(8).optional(),
 });
 
 module.exports = { RepRoleSchema, RepSchema, RepCreateSchema, RepUpdateSchema };

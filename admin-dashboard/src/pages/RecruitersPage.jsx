@@ -84,7 +84,7 @@ export default function RecruitersPage() {
     event.preventDefault();
     setSaving(true); setError(''); setNotice('');
     try {
-      await client.put(`/reps/${editing.id}`, { name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim().toLowerCase(), role: 'recruiter' });
+      await client.put(`/reps/${editing.id}`, { name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim().toLowerCase(), role: 'recruiter', ...(form.password ? { password: form.password } : {}) });
       setEditing(null); setForm(blank); setNotice('Recruiter account updated.'); await load();
     } catch (requestError) { setError(requestError.response?.data?.error?.message || 'Could not update recruiter account.'); }
     finally { setSaving(false); }
@@ -112,7 +112,7 @@ export default function RecruitersPage() {
           <div className="field"><label>Full name</label><input required maxLength={160} autoComplete="name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></div>
           <div className="field"><label>Phone</label><input required type="tel" autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></div>
           <div className="field"><label>Email (sign-in)</label><input required type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></div>
-          {!editing && <div className="field"><label>Temporary password</label><input required minLength={8} type="password" autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></div>}
+          <div className="field"><label>{editing ? 'New password (optional)' : 'Temporary password'}</label><input required={!editing} minLength={8} type="password" autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /><small className="muted">{editing ? 'Leave blank to keep the current password. Saving a new password signs the recruiter out of other sessions.' : 'Share this securely with the recruiter.'}</small></div>
           <div className="dialog-actions"><Button type="submit" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save account' : 'Create recruiter account'}</Button>{editing && <Button variant="secondary" onClick={() => { setEditing(null); setForm(blank); }}>Cancel</Button>}</div>
         </form>
       </Card>

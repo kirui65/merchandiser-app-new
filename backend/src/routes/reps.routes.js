@@ -98,10 +98,13 @@ router.put('/:id', requireManager, validateBody(RepUpdateSchema), async (req, re
   try {
     const existing = await getDoc('reps', req.params.id);
     if (!existing) throw new ApiError(404, 'Rep not found');
-    const email = normalizeEmail(req.body.email);
+    const { password, ...input } = req.body;
+    const email = normalizeEmail(input.email);
     await assertEmailIsAvailable(email, req.params.id);
-    const rep = await updateRepWithUniqueEmail(req.params.id, { ...req.body, email, authVersion: Number(existing.authVersion || 0) + 1 });
-    await recordAudit(req, { action: 'edited', entityType: 'rep', entity: rep, changedFields: Object.keys(req.body) });
+    const changes = { ...input, email, authVersion: Number(existing.authVersion || 0) + 1 };
+    if (password) changes.passwordHash = await bcrypt.hash(password, 10);
+    const rep = await updateRepWithUniqueEmail(req.params.id, changes);
+    await recordAudit(req, { action: password ? 'password_reset' : 'edited', entityType: 'rep', entity: rep, changedFields: [...Object.keys(input), ...(password ? ['password'] : [])] });
     const { passwordHash: _omit, ...safeRep } = rep;
     return res.json({ rep: safeRep });
   } catch (err) { return next(err); }
