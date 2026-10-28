@@ -247,6 +247,13 @@ export default function CampaignsPage() {
     setSaving(true);
     try {
       const payload = toPayload(form);
+      // Existing campaigns may retain IDs for accounts that were later
+      // deactivated or deleted. Do not re-submit those invisible stale IDs.
+      const activeRecruiterIds = new Set(recruiters.map((recruiter) => recruiter.id));
+      const staleRecruiterIds = payload.recruiterIds.filter((id) => !activeRecruiterIds.has(id));
+      if (staleRecruiterIds.length) {
+        payload.recruiterIds = payload.recruiterIds.filter((id) => activeRecruiterIds.has(id));
+      }
       if (editing) await client.patch(`/campaigns/${editing.id}`, payload);
       else await client.post('/campaigns', payload);
       setForm(emptyForm);
