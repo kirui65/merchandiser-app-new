@@ -86,8 +86,11 @@ export default function ReferralRegistrationsPage() {
   }
 
   function exportApplicants() {
-    const exportedRows = filteredRows.map((row) => [row.applicantName, sourceLabel(row.source), row.campaignName, recruiterName(row), row.county || '—', label(row.status), row.commissionConfigured ? `KSh ${Number(row.commissionAmountKsh).toLocaleString()}` : 'Not configured', label(row.payoutStatus || '—')]);
-    exportPdf('Applicant referral report', ['Applicant', 'Source', 'Campaign', 'Recruiter', 'County', 'Progress', 'Commission', 'Payout status'], exportedRows, { subtitle: `${filteredRows.length} applicant records${sourceFilter ? ` · ${sourceLabel(sourceFilter)}` : ''}${statusFilter ? ` · ${label(statusFilter)}` : ''}${campaignFilter ? ` · ${campaignFilter}` : ''}` });
+    const exportedRows = filteredRows.map((row) => [
+      [`${row.applicantName || '—'}`, `Email: ${row.email || '—'}`, `Phone: ${row.phone || '—'}`, `County: ${row.county || '—'}`, `National ID: ${row.applicantIdNumber || '—'}`, `Education: ${row.education || '—'}`, `Passport: ${label(row.passportStatus) || '—'}`, `NITA fee: ${row.nitaFeeStatus === 'paid' ? 'Paid' : 'Unpaid'}`].join('\n'),
+      sourceLabel(row.source), row.campaignName, recruiterName(row), label(row.status), row.commissionConfigured ? `KSh ${Number(row.commissionAmountKsh).toLocaleString()}` : 'Not configured', label(row.payoutStatus || '—'),
+    ]);
+    exportPdf('Applicant referral report', ['Applicant details', 'Source', 'Campaign', 'Recruiter', 'Progress', 'Commission', 'Payout status'], exportedRows, { fontSize: 9, headerFontSize: 10, subtitle: `${filteredRows.length} applicant records${sourceFilter ? ` · ${sourceLabel(sourceFilter)}` : ''}${statusFilter ? ` · ${label(statusFilter)}` : ''}${campaignFilter ? ` · ${campaignFilter}` : ''}` });
   }
 
   async function deleteReferral(row) {

@@ -87,9 +87,9 @@ export async function exportPdf(title, headers, rows, options = {}) {
       body: rows.length ? rows.map((row) => row.map((cell) => String(cell ?? ''))) : [['No records to display.']],
       startY,
       margin: { top: startY, right: margin, bottom: 18, left: margin },
-      styles: { font: 'helvetica', fontSize: wide ? 7 : 8, cellPadding: 2.5, overflow: 'linebreak', textColor: [48, 67, 94], lineColor: [222, 231, 241], lineWidth: 0.15 },
-      headStyles: { fillColor: [232, 239, 249], textColor: [38, 67, 102], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 250, 253] },
+      styles: { font: 'helvetica', fontSize: options.fontSize || (wide ? 7 : 8), cellPadding: options.cellPadding || 2.5, overflow: 'linebreak', textColor: [24, 42, 62], lineColor: [190, 204, 218], lineWidth: 0.2 },
+      headStyles: { fillColor: [30, 58, 95], textColor: [255, 255, 255], fontSize: options.headerFontSize || 9, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [244, 248, 251] },
       didDrawPage: (data) => {
         drawHeader();
         doc.setDrawColor(222, 231, 241);
