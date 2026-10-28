@@ -90,6 +90,14 @@ export default function ReferralRegistrationsPage() {
     exportPdf('Applicant referral report', ['Applicant', 'Source', 'Campaign', 'Recruiter', 'County', 'Progress', 'Commission', 'Payout status'], exportedRows, { subtitle: `${filteredRows.length} applicant records${sourceFilter ? ` · ${sourceLabel(sourceFilter)}` : ''}${statusFilter ? ` · ${label(statusFilter)}` : ''}${campaignFilter ? ` · ${campaignFilter}` : ''}` });
   }
 
+  async function deleteReferral(row) {
+    if (!window.confirm(`Delete ${row.applicantName}'s application? This cannot be undone.`)) return;
+    setBusy(row.id); setError('');
+    try { await client.delete(`/referrals/${encodeURIComponent(row.id)}`); await load(); }
+    catch (requestError) { setError(requestError.response?.data?.error?.message || 'Could not delete this application.'); }
+    finally { setBusy(''); }
+  }
+
   return <>
     <div className="page-heading"><span className="eyebrow">JOBPLUS · CANDIDATE RECRUITMENT</span><h1>Applicant referrals</h1><p className="muted">Review recruiter submissions, track progress, and record commission payments against the configured campaign rule.</p></div>
     {error && <div className="error-banner" role="alert">{error}<Button type="button" variant="secondary" onClick={load} disabled={loading}>{loading ? 'Retrying…' : 'Retry'}</Button></div>}
@@ -107,7 +115,7 @@ export default function ReferralRegistrationsPage() {
           <td><details className="referral-details"><summary>View details</summary><dl><dt>Phone</dt><dd>{row.phone || '—'}</dd><dt>Email</dt><dd>{row.email || '—'}</dd><dt>National ID</dt><dd>{row.applicantIdNumber || '—'}</dd><dt>Education</dt><dd>{row.education || '—'}</dd><dt>Passport</dt><dd>{label(row.passportStatus) || '—'}</dd><dt>NITA fee</dt><dd>{row.nitaFeeStatus === 'paid' ? 'Paid' : 'Unpaid'}</dd></dl></details></td>
           <td><span className={`status-pill ${row.status === 'placed' ? 'status-good' : row.status === 'rejected' ? 'status-risk' : 'status-watch'}`}>{label(row.status)}</span></td>
           <td>{row.commissionConfigured ? `KSh ${Number(row.commissionAmountKsh).toLocaleString()} · ${label(row.payoutStatus)}` : 'Not configured'}</td>
-          <td>{isUnclaimedWebLead(row) ? <Button disabled={busy === row.id} onClick={() => openAction('assign', row)}>Assign recruiter</Button> : row.payoutStatus === 'due' ? <Button disabled={busy === row.id} onClick={() => openAction('pay', row)}>Record payment</Button> : nextStatus && row.status !== 'rejected' ? <Button variant="secondary" disabled={busy === row.id} onClick={() => openAction(nextStatus, row)}>Move to {label(nextStatus)}</Button> : row.status === 'rejected' ? 'Closed' : row.status === 'placed' ? 'Complete' : '—'}</td>
+          <td><div className="row-actions">{isUnclaimedWebLead(row) ? <Button disabled={busy === row.id} onClick={() => openAction('assign', row)}>Assign recruiter</Button> : row.payoutStatus === 'due' ? <Button disabled={busy === row.id} onClick={() => openAction('pay', row)}>Record payment</Button> : nextStatus && row.status !== 'rejected' ? <Button variant="secondary" disabled={busy === row.id} onClick={() => openAction(nextStatus, row)}>Move to {label(nextStatus)}</Button> : row.status === 'rejected' ? 'Closed' : row.status === 'placed' ? 'Complete' : '—'}<Button variant="danger" disabled={busy === row.id} onClick={() => deleteReferral(row)}>Delete</Button></div></td>
         </tr>;
       })}</tbody></table></div> : !loading ? <div className="empty-state"><strong>{rows.length ? 'No matching referrals' : 'No registrations yet'}</strong><span>{rows.length ? 'Adjust the search or filters.' : 'Recruiter submissions will appear here.'}</span></div> : null}
     </Card>

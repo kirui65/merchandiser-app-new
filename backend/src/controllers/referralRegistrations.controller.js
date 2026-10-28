@@ -251,14 +251,13 @@ async function updateReferral(req, res, next) {
 
 async function deleteReferral(req, res, next) {
   try {
+    if (req.user.role !== 'manager') throw new ApiError(403, 'Manager role required to delete an applicant registration');
     const db = getFirestore();
     const ref = db.collection('referralRegistrations').doc(req.params.id);
     await db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref);
       if (!snapshot.exists) throw new ApiError(404, 'Applicant registration not found');
       const referral = { id: snapshot.id, ...snapshot.data() };
-      if (!canReadReferral(req.user, referral)) throw new ApiError(403, 'You cannot delete this applicant registration');
-      if (req.user.role === 'recruiter' && referral.status !== 'submitted') throw new ApiError(409, 'Applications can only be deleted before review begins');
       transaction.delete(ref);
     });
     return res.status(204).send();
