@@ -19,11 +19,11 @@ function storedUser() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(storedUser);
 
-  async function signIn(email, password) {
-    const { data } = await client.post('/auth/login', { email, password });
+  async function signIn(email, password, role) {
+    const { data } = await client.post('/auth/login', { email, password, role });
     if (data.mfaRequired) return data;
     if (!['manager', 'recruiter'].includes(data.user.role)) {
-      throw new Error('This web workspace is available to manager and recruiter accounts');
+      throw new Error('This web workspace is available to Admin and campaign recruiter accounts');
     }
     localStorage.setItem('authToken', data.token);
     localStorage.setItem('authUser', JSON.stringify(data.user));
@@ -33,7 +33,7 @@ export function AuthProvider({ children }) {
 
   async function verifyMfa(challenge, code) {
     const { data } = await client.post('/auth/mfa/verify-login', { challenge, code });
-    if (!['manager', 'recruiter'].includes(data.user.role)) throw new Error('This web workspace is available to manager and recruiter accounts');
+    if (!['manager', 'recruiter'].includes(data.user.role)) throw new Error('This web workspace is available to Admin and campaign recruiter accounts');
     updateSession(data);
     return data.user;
   }

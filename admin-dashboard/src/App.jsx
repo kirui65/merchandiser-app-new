@@ -81,7 +81,8 @@ export default function App() {
               <RequireManager><Shell><Dashboard /></Shell></RequireManager>
             }
           />
-          <Route path="/recruiter" element={<RequireRecruiter><RecruiterPortal /></RequireRecruiter>} />
+          <Route path="/recruiter-portal" element={<RequireRecruiter><RecruiterPortal /></RequireRecruiter>} />
+          <Route path="/recruiter" element={<Navigate to="/recruiter-portal" replace />} />
           <Route path="/routes" element={<RequireAuth><Shell><RouteReplayPage /></Shell></RequireAuth>} />
           <Route path="/reps" element={<RequireAuth><Shell><RepsPage /></Shell></RequireAuth>} />
           <Route path="/products" element={<RequireAuth><Shell><ProductsPage /></Shell></RequireAuth>} />
