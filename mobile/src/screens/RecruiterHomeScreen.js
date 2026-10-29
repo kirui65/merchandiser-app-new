@@ -1,15 +1,26 @@
-import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getRecruitmentCampaigns, getReferralSummary } from '../api/referrals';
 import { useTheme } from '../theme/ThemeContext';
+import { isCurrentlyOnline } from '../utils/netInfo';
 
 export default function RecruiterHomeScreen({ navigation }) {
-  const { colors } = useTheme(); const [campaigns, setCampaigns] = useState([]); const [summary, setSummary] = useState(null); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
-  useFocusEffect(useCallback(() => { let active = true; Promise.all([getRecruitmentCampaigns(), getReferralSummary()]).then(([c,s]) => { if (active) { setCampaigns(c); setSummary(s); setError(''); } }).catch(() => active && setError('Could not refresh campaign data. Check your connection and try again.')).finally(() => active && setLoading(false)); return () => { active = false; }; }, []));
-  return <SafeAreaView style={[styles.safe,{backgroundColor:colors.background}]}><ScrollView contentContainerStyle={styles.content}>
+  const { colors } = useTheme(); const [campaigns, setCampaigns] = useState([]); const [summary, setSummary] = useState(null); const [loading, setLoading] = useState(true); const [refreshing, setRefreshing] = useState(false); const [error, setError] = useState('');
+  const mounted = useRef(true);
+  const load = useCallback(async (pull = false) => {
+    if (pull) setRefreshing(true); else setLoading(true);
+    try {
+      if (!(await isCurrentlyOnline())) throw new Error('offline');
+      const [c, s] = await Promise.all([getRecruitmentCampaigns(), getReferralSummary()]);
+      if (mounted.current) { setCampaigns(c); setSummary(s); setError(''); }
+    } catch { if (mounted.current) setError('Could not refresh campaign data. Check your internet connection and pull down to try again.'); }
+    finally { if (mounted.current) { setLoading(false); setRefreshing(false); } }
+  }, []);
+  useFocusEffect(useCallback(() => { mounted.current = true; load(); return () => { mounted.current = false; }; }, [load]));
+  return <SafeAreaView style={[styles.safe,{backgroundColor:colors.background}]}><ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />}>
     <View style={styles.header}><View><Text style={[styles.kicker,{color:colors.primary}]}>JOBPLUS INTERNATIONAL</Text><Text style={[styles.title,{color:colors.ink}]}>Recruiter hub</Text></View><Ionicons name="people-circle-outline" size={34} color={colors.primary}/></View>
     <View style={styles.hero}><Text style={styles.heroKicker}>SAUDI ARABIA · HOMECARE</Text><Text style={styles.heroTitle}>A clear path from referral to placement.</Text><Text style={styles.heroText}>Register interested applicants, then follow each referral through review and training.</Text><Pressable style={styles.cta} onPress={() => navigation.navigate('NewApplicant')}><Text style={styles.ctaText}>Register applicant</Text><Ionicons name="arrow-forward" size={18} color="#172033"/></Pressable></View>
     <Image source={require('../../assets/jobplus-recruitment-poster.png')} resizeMode="cover" style={styles.poster} accessibilityLabel="Jobplus International Saudi Arabia homecare recruitment poster" />

@@ -1,5 +1,8 @@
 const WINDOW_MS = 15 * 60 * 1000;
-const MAX_SUBMISSIONS = 10;
+// This is deliberately a burst limit rather than a limit on the number of
+// applicants a shared office network can register. Counting every attempt
+// made the 10th validation error or duplicate retry block real applicants.
+const MAX_SUBMISSIONS = 50;
 const attemptsByIp = new Map();
 let lastCleanup = 0;
 
@@ -23,8 +26,15 @@ function webLeadRateLimit(req, res, next) {
   if (recent.length >= MAX_SUBMISSIONS) {
     return res.status(429).json({ error: { message: 'Too many submissions. Please try again later.' } });
   }
-  recent.push(now);
-  attemptsByIp.set(key, recent);
+  // Only successful creates consume a slot. A shared NAT/IP can therefore
+  // correct a form or retry a duplicate without losing its registration
+  // allowance. The response listener runs before the request is discarded.
+  res.on('finish', () => {
+    if (res.statusCode < 200 || res.statusCode >= 300) return;
+    const current = (attemptsByIp.get(key) || []).filter((time) => time > Date.now() - WINDOW_MS);
+    current.push(Date.now());
+    attemptsByIp.set(key, current);
+  });
   return next();
 }
 

@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getRecruitmentCampaigns, submitReferral } from '../api/referrals';
 import { useTheme } from '../theme/ThemeContext';
+import { isCurrentlyOnline } from '../utils/netInfo';
 
 const educationOptions = [
   ['KCPE', 'KCPE'], ['KCSE', 'KCSE'], ['certificate', 'Certificate'],
@@ -21,24 +22,30 @@ export default function NewApplicantScreen({ navigation }) {
   const [form, setForm] = useState(initialForm);
   const [consent, setConsent] = useState(false);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const mounted = useRef(true);
+
+  const loadCampaigns = useCallback(async (pull = false) => {
+    if (pull) setRefreshing(true); else setLoadingCampaigns(true);
+    try {
+      if (!(await isCurrentlyOnline())) throw new Error('offline');
+      const result = await getRecruitmentCampaigns();
+      if (mounted.current) {
+        setCampaigns(result);
+        setForm((current) => ({ ...current, campaignId: result.some((item) => item.id === current.campaignId) ? current.campaignId : result[0]?.id || '' }));
+        setError(result.length ? '' : 'No active recruitment campaign is assigned to your account. Ask your manager to assign you in Campaigns.');
+      }
+    } catch { if (mounted.current) setError('Could not load campaigns. Check your internet connection and pull down to try again.'); }
+    finally { if (mounted.current) { setLoadingCampaigns(false); setRefreshing(false); } }
+  }, []);
 
   useFocusEffect(useCallback(() => {
-    let active = true;
-    setLoadingCampaigns(true);
-    getRecruitmentCampaigns()
-      .then((result) => {
-        if (!active) return;
-        setCampaigns(result);
-        setForm((current) => ({ ...current, campaignId: current.campaignId || result[0]?.id || '' }));
-        if (!result.length) setError('No active recruitment campaign is assigned to your account. Ask your manager to assign you in Campaigns.');
-        else setError('');
-      })
-      .catch(() => active && setError('Could not load campaigns. Check your connection and try again.'))
-      .finally(() => active && setLoadingCampaigns(false));
-    return () => { active = false; };
-  }, []));
+    mounted.current = true;
+    loadCampaigns();
+    return () => { mounted.current = false; };
+  }, [loadCampaigns]));
 
   function update(key, value) { setForm((current) => ({ ...current, [key]: value })); }
 
@@ -99,7 +106,7 @@ export default function NewApplicantScreen({ navigation }) {
 
   return <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
     <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadCampaigns(true)} tintColor={colors.primary} />}>
         <Text style={[styles.title, { color: colors.ink }]}>Register applicant</Text>
         <Text style={[styles.note, { color: colors.muted }]}>Confirm the applicant agrees before entering their personal information. Their phone number prevents repeat registrations.</Text>
         {loadingCampaigns ? <View style={styles.loading}><ActivityIndicator color={colors.primary}/><Text style={[styles.hint, { color: colors.muted }]}>Loading your team’s campaigns…</Text></View> : null}
