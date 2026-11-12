@@ -2,16 +2,19 @@ import { formatDateTime } from './formatters';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-function csvCell(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
+function csvCell(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
 
 export function downloadCsv(filename, headers, rows) {
   const csv = [headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
-  link.href = url; link.download = filename; link.click();
+  link.href = url;
+  link.download = filename;
+  link.click();
   URL.revokeObjectURL(url);
 }
-
 
 async function loadCompanyLogo() {
   const response = await fetch('/brandsphere-wordmark.png');
@@ -24,7 +27,7 @@ async function loadCompanyLogo() {
     await image.decode();
     const canvas = document.createElement('canvas');
     canvas.width = 850;
-    canvas.height = Math.round(850 * image.height / image.width);
+    canvas.height = Math.round((850 * image.height) / image.width);
     const context = canvas.getContext('2d');
     context.fillStyle = '#fff';
     context.fillRect(0, 0, canvas.width, canvas.height);
@@ -36,14 +39,25 @@ async function loadCompanyLogo() {
 }
 
 function fileSlug(value) {
-  return String(value || 'report').normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s-]+/g, '-').toLowerCase().slice(0, 70) || 'report';
+  return (
+    String(value || 'report')
+      .normalize('NFKD')
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/[\s-]+/g, '-')
+      .toLowerCase()
+      .slice(0, 70) || 'report'
+  );
 }
 
 function printableDate(value) {
   if (!value) return '';
-  const timestamp = typeof value === 'object'
-    ? (typeof value.toDate === 'function' ? value.toDate() : (value.seconds ?? value._seconds) * 1000)
-    : value;
+  const timestamp =
+    typeof value === 'object'
+      ? typeof value.toDate === 'function'
+        ? value.toDate()
+        : (value.seconds ?? value._seconds) * 1000
+      : value;
   const date = new Date(timestamp);
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString();
 }
@@ -52,12 +66,19 @@ export async function exportPdf(title, headers, rows, options = {}) {
   try {
     const logo = await loadCompanyLogo();
     const wide = headers.length >= 7;
-    const doc = new jsPDF({ orientation: wide ? 'landscape' : 'portrait', unit: 'mm', format: 'a4', compress: true });
+    const doc = new jsPDF({
+      orientation: wide ? 'landscape' : 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true,
+    });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
     const reportDate = formatDateTime(new Date());
-    const subtitleLines = options.subtitle ? doc.splitTextToSize(String(options.subtitle), pageWidth - margin * 2) : [];
+    const subtitleLines = options.subtitle
+      ? doc.splitTextToSize(String(options.subtitle), pageWidth - margin * 2)
+      : [];
     const startY = 51 + Math.max(0, subtitleLines.length - 1) * 4;
     const drawHeader = () => {
       doc.addImage(logo, 'JPEG', margin, 8, 53, 20);
@@ -84,11 +105,26 @@ export async function exportPdf(title, headers, rows, options = {}) {
     };
     autoTable(doc, {
       head: [headers.map((cell) => String(cell ?? ''))],
-      body: rows.length ? rows.map((row) => row.map((cell) => String(cell ?? ''))) : [['No records to display.']],
+      body: rows.length
+        ? rows.map((row) => row.map((cell) => String(cell ?? '')))
+        : [['No records to display.']],
       startY,
       margin: { top: startY, right: margin, bottom: 18, left: margin },
-      styles: { font: 'helvetica', fontSize: options.fontSize || (wide ? 7 : 8), cellPadding: options.cellPadding || 2.5, overflow: 'linebreak', textColor: [24, 42, 62], lineColor: [190, 204, 218], lineWidth: 0.2 },
-      headStyles: { fillColor: [30, 58, 95], textColor: [255, 255, 255], fontSize: options.headerFontSize || 9, fontStyle: 'bold' },
+      styles: {
+        font: 'helvetica',
+        fontSize: options.fontSize || (wide ? 7 : 8),
+        cellPadding: options.cellPadding || 2.5,
+        overflow: 'linebreak',
+        textColor: [24, 42, 62],
+        lineColor: [190, 204, 218],
+        lineWidth: 0.2,
+      },
+      headStyles: {
+        fillColor: [30, 58, 95],
+        textColor: [255, 255, 255],
+        fontSize: options.headerFontSize || 9,
+        fontStyle: 'bold',
+      },
       alternateRowStyles: { fillColor: [244, 248, 251] },
       didDrawPage: (data) => {
         drawHeader();
@@ -102,7 +138,9 @@ export async function exportPdf(title, headers, rows, options = {}) {
         doc.text(`Page ${data.pageNumber}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
       },
     });
-    const filename = options.filename || `brandsphere-${fileSlug(title)}-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const filename =
+      options.filename ||
+      `brandsphere-${fileSlug(title)}-${new Date().toISOString().slice(0, 10)}.pdf`;
     doc.save(filename);
     return true;
   } catch (error) {
@@ -119,12 +157,17 @@ export async function exportApplicantPaperForm(campaign) {
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
     const contentWidth = pageWidth - margin * 2;
-    const campaignDates = [printableDate(campaign.startsAt), campaign.endsAt ? printableDate(campaign.endsAt) : 'Ongoing'].filter(Boolean).join(' – ');
+    const campaignDates = [
+      printableDate(campaign.startsAt),
+      campaign.endsAt ? printableDate(campaign.endsAt) : 'Ongoing',
+    ]
+      .filter(Boolean)
+      .join(' – ');
     let y = 10;
 
     const line = (value = y) => {
       doc.setDrawColor(203, 215, 225);
-      doc.setLineWidth(.25);
+      doc.setLineWidth(0.25);
       doc.line(margin, value, pageWidth - margin, value);
     };
     const section = (title) => {
@@ -152,7 +195,7 @@ export async function exportApplicantPaperForm(campaign) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(58, 78, 91);
-      doc.text(label, x + 5, y - .8);
+      doc.text(label, x + 5, y - 0.8);
     };
 
     doc.addImage(logo, 'JPEG', margin, y, 49, 18);
@@ -177,52 +220,99 @@ export async function exportApplicantPaperForm(campaign) {
     doc.setTextColor(91, 111, 126);
     doc.text(`Campaign: ${campaign.name || 'Recruitment campaign'}`, margin, y);
     if (campaign.clientName) doc.text(`Client: ${campaign.clientName}`, margin, y + 4.5);
-    doc.text(`Campaign period: ${campaignDates || 'Ongoing'}`, pageWidth - margin, y, { align: 'right' });
-    doc.text(`Paper form no.: ____________________`, pageWidth - margin, y + 4.5, { align: 'right' });
+    doc.text(`Campaign period: ${campaignDates || 'Ongoing'}`, pageWidth - margin, y, {
+      align: 'right',
+    });
+    doc.text(`Paper form no.: ____________________`, pageWidth - margin, y + 4.5, {
+      align: 'right',
+    });
     y += 10;
 
     section('Applicant details');
-    field.x = 0; field('Full legal name', 86); field('National ID number', contentWidth - 90); y += 16;
-    field.x = 0; field('Phone number', 86); field('Email address', contentWidth - 90); y += 16;
-    field.x = 0; field('County of residence', 86); field('Date recorded', contentWidth - 90); y += 14;
+    field.x = 0;
+    field('Full legal name', 86);
+    field('National ID number', contentWidth - 90);
+    y += 16;
+    field.x = 0;
+    field('Phone number', 86);
+    field('Email address', contentWidth - 90);
+    y += 16;
+    field.x = 0;
+    field('County of residence', 86);
+    field('Date recorded', contentWidth - 90);
+    y += 14;
 
     section('Eligibility details');
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(76, 99, 113);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(76, 99, 113);
     doc.text('Highest education completed (tick one)', margin, y);
     y += 6;
-    check('KCPE', margin); check('KCSE', margin + 31); check('Certificate', margin + 61); check('Diploma', margin + 101); check('Degree', margin + 136); check('Postgraduate', margin + 168);
+    check('KCPE', margin);
+    check('KCSE', margin + 31);
+    check('Certificate', margin + 61);
+    check('Diploma', margin + 101);
+    check('Degree', margin + 136);
+    check('Postgraduate', margin + 168);
     y += 10;
-    check('Other higher qualification', margin); doc.setDrawColor(122, 140, 151); doc.line(margin + 49, y - .8, pageWidth - margin, y - .8);
+    check('Other higher qualification', margin);
+    doc.setDrawColor(122, 140, 151);
+    doc.line(margin + 49, y - 0.8, pageWidth - margin, y - 0.8);
     y += 11;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(76, 99, 113);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(76, 99, 113);
     doc.text('Passport readiness (tick one)', margin, y);
     y += 6;
-    check('I have a passport', margin); check('I will get one myself', margin + 52); check('I am not ready yet', margin + 116);
+    check('I have a passport', margin);
+    check('I will get one myself', margin + 52);
+    check('I am not ready yet', margin + 116);
     y += 11;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(76, 99, 113);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(76, 99, 113);
     doc.text('NITA fee status (tick one)', margin, y);
     y += 6;
-    check('Not paid', margin); check('Paid', margin + 42);
+    check('Not paid', margin);
+    check('Paid', margin + 42);
     y += 7;
 
     section('Consent and recruiter record');
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(58, 78, 91);
-    const consent = 'I confirm that I am an adult woman and consent to Brandsphere collecting and using my ID, contact, education, and campaign details to assess and contact me about this recruitment opportunity.';
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(58, 78, 91);
+    const consent =
+      'I confirm that I am an adult woman and consent to Brandsphere collecting and using my ID, contact, education, and campaign details to assess and contact me about this recruitment opportunity.';
     const consentLines = doc.splitTextToSize(consent, contentWidth - 7);
     doc.rect(margin, y - 3.5, 3.2, 3.2);
-    doc.text(consentLines, margin + 5, y - .8);
+    doc.text(consentLines, margin + 5, y - 0.8);
     y += consentLines.length * 3.5 + 5;
-    field.x = 0; field('Applicant signature', 86); field('Recruiter name', contentWidth - 90); y += 16;
-    field.x = 0; field('Recruiter signature', 86); field('Date entered in app', contentWidth - 90); y += 17;
+    field.x = 0;
+    field('Applicant signature', 86);
+    field('Recruiter name', contentWidth - 90);
+    y += 16;
+    field.x = 0;
+    field('Recruiter signature', 86);
+    field('Date entered in app', contentWidth - 90);
+    y += 17;
     line(y);
     y += 5;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(53, 87, 75);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(53, 87, 75);
     doc.text('Handling instructions', margin, y);
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(91, 111, 126);
-    const instructions = 'Enter this form in the recruiter app as soon as you have connectivity. Keep paper forms secure, share them only with authorised recruitment staff, and destroy them in line with your organisation’s retention policy after successful entry.';
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(91, 111, 126);
+    const instructions =
+      'Enter this form in the recruiter app as soon as you have connectivity. Keep paper forms secure, share them only with authorised recruitment staff, and destroy them in line with your organisation’s retention policy after successful entry.';
     doc.text(doc.splitTextToSize(instructions, contentWidth), margin, y + 4);
-    doc.setFontSize(6.5); doc.setTextColor(118, 132, 153);
-    doc.text(`Generated ${new Date().toLocaleDateString()} · Campaign ID: ${campaign.id || '—'}`, margin, pageHeight - 9);
+    doc.setFontSize(6.5);
+    doc.setTextColor(118, 132, 153);
+    doc.text(
+      `Generated ${new Date().toLocaleDateString()} · Campaign ID: ${campaign.id || '—'}`,
+      margin,
+      pageHeight - 9,
+    );
     doc.save(`brandsphere-engagement-form-${fileSlug(campaign.name)}.pdf`);
     return true;
   } catch (error) {

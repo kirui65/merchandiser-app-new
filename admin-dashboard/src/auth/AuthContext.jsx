@@ -5,7 +5,9 @@ const AuthContext = createContext(null);
 
 function assertWebAccess(user) {
   if (user?.role === 'recruiter' && user.accessMode === 'apk') {
-    throw new Error('This account is configured for the Android APK only. Ask an administrator to enable web portal access.');
+    throw new Error(
+      'This account is configured for the Android APK only. Ask an administrator to enable web portal access.',
+    );
   }
 }
 
@@ -40,7 +42,8 @@ export function AuthProvider({ children }) {
 
   async function verifyMfa(challenge, code) {
     const { data } = await client.post('/auth/mfa/verify-login', { challenge, code });
-    if (!['manager', 'recruiter'].includes(data.user.role)) throw new Error('This web workspace is available to Admin and campaign recruiter accounts');
+    if (!['manager', 'recruiter'].includes(data.user.role))
+      throw new Error('This web workspace is available to Admin and campaign recruiter accounts');
     assertWebAccess(data.user);
     updateSession(data);
     return data.user;
@@ -58,7 +61,11 @@ export function AuthProvider({ children }) {
     setUser(updatedUser);
   }
 
-  return <AuthContext.Provider value={{ user, signIn, verifyMfa, signOut, updateSession }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, signIn, verifyMfa, signOut, updateSession }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

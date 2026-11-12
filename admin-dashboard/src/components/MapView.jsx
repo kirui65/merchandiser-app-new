@@ -17,7 +17,10 @@ export default function MapView({ pings = [], outlets = [], visitedOutletIds = [
     const map = useMap();
     useEffect(() => {
       map.invalidateSize();
-      const points = [...routePoints, ...outlets.map((outlet) => pointForLocation(outlet.location)).filter(Boolean)];
+      const points = [
+        ...routePoints,
+        ...outlets.map((outlet) => pointForLocation(outlet.location)).filter(Boolean),
+      ];
       if (points.length > 1) map.fitBounds(points, { padding: [28, 28], maxZoom: 15 });
       else if (points.length) map.setView(points[0], 14);
     }, [map, pings, outlets]);
@@ -31,13 +34,41 @@ export default function MapView({ pings = [], outlets = [], visitedOutletIds = [
         attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {routePoints.length > 1 && <Polyline positions={routePoints} pathOptions={{ color: colors.accent, weight: 4 }} />}
-      {pings.length > 0 && <CircleMarker center={routePoints[routePoints.length - 1]} radius={8} pathOptions={{ color: colors.primary, fillColor: colors.primary, fillOpacity: 1 }}><Popup>Latest ping</Popup></CircleMarker>}
+      {routePoints.length > 1 && (
+        <Polyline positions={routePoints} pathOptions={{ color: colors.accent, weight: 4 }} />
+      )}
+      {pings.length > 0 && (
+        <CircleMarker
+          center={routePoints[routePoints.length - 1]}
+          radius={8}
+          pathOptions={{ color: colors.primary, fillColor: colors.primary, fillOpacity: 1 }}
+        >
+          <Popup>Latest ping</Popup>
+        </CircleMarker>
+      )}
       {outlets.map((outlet) => {
         const position = pointForLocation(outlet.location);
         if (!position) return null;
         const visited = visitedOutletIds.includes(outlet.id);
-        return <CircleMarker key={outlet.id} center={position} radius={visited ? 7 : 6} pathOptions={{ color: visited ? '#08766d' : '#a94c43', fillColor: visited ? '#22a985' : '#d2766d', fillOpacity: 0.9, weight: 2 }}><Popup><strong>{outlet.name}</strong><br />{visited ? 'Visited' : 'Missed'}</Popup></CircleMarker>;
+        return (
+          <CircleMarker
+            key={outlet.id}
+            center={position}
+            radius={visited ? 7 : 6}
+            pathOptions={{
+              color: visited ? '#08766d' : '#a94c43',
+              fillColor: visited ? '#22a985' : '#d2766d',
+              fillOpacity: 0.9,
+              weight: 2,
+            }}
+          >
+            <Popup>
+              <strong>{outlet.name}</strong>
+              <br />
+              {visited ? 'Visited' : 'Missed'}
+            </Popup>
+          </CircleMarker>
+        );
       })}
     </MapContainer>
   );

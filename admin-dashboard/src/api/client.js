@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://brandsphere-backend-kgvr.onrender.com/api';
+const BASE_URL =
+  import.meta.env.VITE_API_URL || 'https://brandsphere-backend-kgvr.onrender.com/api';
 
 // The hosted API may need time to wake after an idle period. A finite timeout
 // still prevents the dashboard from being left in a permanent loading state.
@@ -21,7 +22,7 @@ client.interceptors.response.use(
       window.location.href = '/login';
     }
     return Promise.reject(err);
-  }
+  },
 );
 
 export default client;

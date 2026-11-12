@@ -49,7 +49,10 @@ export default function RepsPage() {
 
   useEffect(() => {
     load().catch(() => setError('Failed to load reps'));
-    client.get('/auth/mfa/status').then(({ data }) => setMfaEnabled(data.enabled === true)).catch(() => {});
+    client
+      .get('/auth/mfa/status')
+      .then(({ data }) => setMfaEnabled(data.enabled === true))
+      .catch(() => {});
   }, []);
 
   async function submit(event) {
@@ -113,7 +116,8 @@ export default function RepsPage() {
   async function deleteAccount(event) {
     event.preventDefault();
     if (!deleteCandidate) return;
-    setDeleting(true); setError(null);
+    setDeleting(true);
+    setError(null);
     try {
       const { data } = await client.post(`/admin/reps/${deleteCandidate.id}/delete`, {
         confirmEmail: deleteEmail,
@@ -121,11 +125,16 @@ export default function RepsPage() {
         ...(mfaEnabled ? { mfaCode: deleteMfaCode } : {}),
       });
       setNotice(data.message);
-      setDeleteCandidate(null); setDeleteEmail(''); setDeletePassword(''); setDeleteMfaCode('');
+      setDeleteCandidate(null);
+      setDeleteEmail('');
+      setDeletePassword('');
+      setDeleteMfaCode('');
       await load();
     } catch (requestError) {
       setError(requestError.response?.data?.error?.message || 'Failed to delete account');
-    } finally { setDeleting(false); }
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function startEditing(rep) {
@@ -140,16 +149,24 @@ export default function RepsPage() {
       <div className="page-heading">
         <span className="eyebrow">FIELD NETWORK</span>
         <h1>Representatives</h1>
-        <p className="muted">Manage access and field coverage without deleting historical records.</p>
+        <p className="muted">
+          Manage access and field coverage without deleting historical records.
+        </p>
       </div>
-      {notice ? <div className="success-banner" style={{ marginBottom: 18 }}>{notice}</div> : null}
+      {notice ? (
+        <div className="success-banner" style={{ marginBottom: 18 }}>
+          {notice}
+        </div>
+      ) : null}
       {error ? <div className="error-banner">{error}</div> : null}
       {duplicateEmails.length ? (
         <div className="error-banner" role="alert">
           <strong>Existing duplicate email addresses need review. No accounts were removed.</strong>
           <ul>
             {duplicateEmails.map(([email, matchingReps]) => (
-              <li key={email}>{email}: {matchingReps.map((rep) => rep.name).join(', ')}</li>
+              <li key={email}>
+                {email}: {matchingReps.map((rep) => rep.name).join(', ')}
+              </li>
             ))}
           </ul>
         </div>
@@ -157,16 +174,47 @@ export default function RepsPage() {
       <div className="grid-2">
         <Card title="Create account">
           <form className="form-grid" onSubmit={submit}>
-            {Object.entries(form).filter(([key]) => key !== 'role').map(([key, value]) => (
-              <div className="field" key={key}>
-                <label>{key[0].toUpperCase() + key.slice(1)}</label>
-                <input type={key === 'password' ? 'password' : key === 'email' ? 'email' : key === 'phone' ? 'tel' : 'text'} autoComplete={key === 'password' ? 'new-password' : key === 'email' ? 'email' : key === 'phone' ? 'tel' : 'name'} required value={value} onChange={(event) => setForm({ ...form, [key]: event.target.value })} />
-              </div>
-            ))}
+            {Object.entries(form)
+              .filter(([key]) => key !== 'role')
+              .map(([key, value]) => (
+                <div className="field" key={key}>
+                  <label>{key[0].toUpperCase() + key.slice(1)}</label>
+                  <input
+                    type={
+                      key === 'password'
+                        ? 'password'
+                        : key === 'email'
+                          ? 'email'
+                          : key === 'phone'
+                            ? 'tel'
+                            : 'text'
+                    }
+                    autoComplete={
+                      key === 'password'
+                        ? 'new-password'
+                        : key === 'email'
+                          ? 'email'
+                          : key === 'phone'
+                            ? 'tel'
+                            : 'name'
+                    }
+                    required
+                    value={value}
+                    onChange={(event) => setForm({ ...form, [key]: event.target.value })}
+                  />
+                </div>
+              ))}
             <div className="field">
               <label>Role</label>
-              <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}>
-                {ROLE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              <select
+                value={form.role}
+                onChange={(event) => setForm({ ...form, role: event.target.value })}
+              >
+                {ROLE_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
             <Button type="submit">Create account</Button>
@@ -176,25 +224,72 @@ export default function RepsPage() {
           {reps.length ? (
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Name</th><th>Contact</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody>{reps.map((rep) => (
-                  <tr key={rep.id}>
-                    <td>{rep.name}</td>
-                    <td>{rep.email}<br />{rep.phone}</td>
-                    <td>{roleLabel(rep.role)}</td>
-                    <td>{rep.active ? 'Active' : 'Inactive'}</td>
-                    <td><details className="row-actions"><summary>Actions</summary><div className="row-actions-menu">
-                      <button type="button" onClick={() => startEditing(rep)}>Edit account</button>
-                      <button type="button" onClick={() => toggle(rep)}>{rep.active ? 'Deactivate account' : 'Reactivate account'}</button>
-                      <button type="button" onClick={() => resetPassword(rep)}>Reset password</button>
-                      {rep.mfaEnabled ? <button type="button" onClick={() => resetMfa(rep)}>Reset MFA</button> : null}
-                      {rep.id !== currentUser?.id ? <button type="button" className="is-danger" onClick={() => { setDeleteCandidate(rep); setDeleteEmail(''); setDeletePassword(''); setDeleteMfaCode(''); }}>Delete account</button> : null}
-                    </div></details></td>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Contact</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}</tbody>
+                </thead>
+                <tbody>
+                  {reps.map((rep) => (
+                    <tr key={rep.id}>
+                      <td>{rep.name}</td>
+                      <td>
+                        {rep.email}
+                        <br />
+                        {rep.phone}
+                      </td>
+                      <td>{roleLabel(rep.role)}</td>
+                      <td>{rep.active ? 'Active' : 'Inactive'}</td>
+                      <td>
+                        <details className="row-actions">
+                          <summary>Actions</summary>
+                          <div className="row-actions-menu">
+                            <button type="button" onClick={() => startEditing(rep)}>
+                              Edit account
+                            </button>
+                            <button type="button" onClick={() => toggle(rep)}>
+                              {rep.active ? 'Deactivate account' : 'Reactivate account'}
+                            </button>
+                            <button type="button" onClick={() => resetPassword(rep)}>
+                              Reset password
+                            </button>
+                            {rep.mfaEnabled ? (
+                              <button type="button" onClick={() => resetMfa(rep)}>
+                                Reset MFA
+                              </button>
+                            ) : null}
+                            {rep.id !== currentUser?.id ? (
+                              <button
+                                type="button"
+                                className="is-danger"
+                                onClick={() => {
+                                  setDeleteCandidate(rep);
+                                  setDeleteEmail('');
+                                  setDeletePassword('');
+                                  setDeleteMfaCode('');
+                                }}
+                              >
+                                Delete account
+                              </button>
+                            ) : null}
+                          </div>
+                        </details>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
-          ) : <EmptyState title="No representatives" message="Create the first field account to get started." />}
+          ) : (
+            <EmptyState
+              title="No representatives"
+              message="Create the first field account to get started."
+            />
+          )}
         </Card>
       </div>
       {editing ? (
@@ -203,23 +298,123 @@ export default function RepsPage() {
             {['name', 'phone', 'email'].map((key) => (
               <div className="field" key={key}>
                 <label>{key[0].toUpperCase() + key.slice(1)}</label>
-                <input required value={edit[key]} onChange={(event) => setEdit({ ...edit, [key]: event.target.value })} />
+                <input
+                  required
+                  value={edit[key]}
+                  onChange={(event) => setEdit({ ...edit, [key]: event.target.value })}
+                />
               </div>
             ))}
             <div className="field">
               <label>Role</label>
-              <select value={edit.role} onChange={(event) => setEdit({ ...edit, role: event.target.value })}>
-                {ROLE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              <select
+                value={edit.role}
+                onChange={(event) => setEdit({ ...edit, role: event.target.value })}
+              >
+                {ROLE_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <Button type="submit">Save changes</Button>{' '}
-              <Button type="button" variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
+              <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
+                Cancel
+              </Button>
             </div>
           </form>
         </Card>
       ) : null}
-      {deleteCandidate ? <div role="presentation" onMouseDown={() => !deleting && setDeleteCandidate(null)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,18,32,.58)', display: 'grid', placeItems: 'center', padding: 20 }}><section className="ui-card" role="dialog" aria-modal="true" aria-labelledby="delete-account-title" onMouseDown={(event) => event.stopPropagation()} style={{ width: 'min(520px, 100%)', padding: 24 }}><span className="eyebrow">PERMANENT ACCOUNT REMOVAL</span><h2 id="delete-account-title">Delete {deleteCandidate.name}?</h2><p className="muted">This removes their login and profile. Historical sales, referrals, and audit attribution remain under the account ID. Active team memberships will be ended. Reassign a team leader’s teams first.</p><form className="form-grid" onSubmit={deleteAccount}><div className="field"><label>Type this account’s email to confirm</label><input autoComplete="off" required value={deleteEmail} onChange={(event) => setDeleteEmail(event.target.value)} /></div><div className="field"><label>Your current manager password</label><input type="password" autoComplete="current-password" required value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} /></div>{mfaEnabled ? <div className="field"><label>Your authenticator code</label><input inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={deleteMfaCode} onChange={(event) => setDeleteMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} /></div> : null}<div style={{ display: 'flex', gap: 8 }}><Button type="submit" variant="danger" disabled={deleting || deleteEmail.trim().toLowerCase() !== deleteCandidate.email?.trim().toLowerCase()}>{deleting ? 'Deleting…' : 'Permanently delete account'}</Button><Button type="button" variant="secondary" disabled={deleting} onClick={() => setDeleteCandidate(null)}>Cancel</Button></div></form></section></div> : null}
+      {deleteCandidate ? (
+        <div
+          role="presentation"
+          onMouseDown={() => !deleting && setDeleteCandidate(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(10,18,32,.58)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 20,
+          }}
+        >
+          <section
+            className="ui-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-title"
+            onMouseDown={(event) => event.stopPropagation()}
+            style={{ width: 'min(520px, 100%)', padding: 24 }}
+          >
+            <span className="eyebrow">PERMANENT ACCOUNT REMOVAL</span>
+            <h2 id="delete-account-title">Delete {deleteCandidate.name}?</h2>
+            <p className="muted">
+              This removes their login and profile. Historical sales, referrals, and audit
+              attribution remain under the account ID. Active team memberships will be ended.
+              Reassign a team leader’s teams first.
+            </p>
+            <form className="form-grid" onSubmit={deleteAccount}>
+              <div className="field">
+                <label>Type this account’s email to confirm</label>
+                <input
+                  autoComplete="off"
+                  required
+                  value={deleteEmail}
+                  onChange={(event) => setDeleteEmail(event.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label>Your current manager password</label>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={deletePassword}
+                  onChange={(event) => setDeletePassword(event.target.value)}
+                />
+              </div>
+              {mfaEnabled ? (
+                <div className="field">
+                  <label>Your authenticator code</label>
+                  <input
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    required
+                    value={deleteMfaCode}
+                    onChange={(event) =>
+                      setDeleteMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                    }
+                  />
+                </div>
+              ) : null}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button
+                  type="submit"
+                  variant="danger"
+                  disabled={
+                    deleting ||
+                    deleteEmail.trim().toLowerCase() !== deleteCandidate.email?.trim().toLowerCase()
+                  }
+                >
+                  {deleting ? 'Deleting…' : 'Permanently delete account'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={deleting}
+                  onClick={() => setDeleteCandidate(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </>
   );
 }
