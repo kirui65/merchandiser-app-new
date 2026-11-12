@@ -3,6 +3,8 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, Re
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getRecruitmentCampaigns, submitReferral } from '../api/referrals';
+import { useAuth } from '../auth/AuthContext';
+import { cacheCampaigns, getCachedCampaigns } from '../offline/campaignCatalog';
 import { useTheme } from '../theme/ThemeContext';
 import { isCurrentlyOnline } from '../utils/netInfo';
 
@@ -18,6 +20,7 @@ const initialForm = { campaignId: '', applicantName: '', applicantIdNumber: '', 
 
 export default function NewApplicantScreen({ navigation }) {
   const { colors } = useTheme();
+  const { user, signOut } = useAuth();
   const [campaigns, setCampaigns] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [consent, setConsent] = useState(false);
@@ -25,21 +28,54 @@ export default function NewApplicantScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [campaignNotice, setCampaignNotice] = useState('');
   const mounted = useRef(true);
+  const signOutRef = useRef(signOut);
+  signOutRef.current = signOut;
+
+  function applyCampaigns(result) {
+    setCampaigns(result);
+    setForm((current) => ({ ...current, campaignId: result.some((item) => item.id === current.campaignId) ? current.campaignId : result[0]?.id || '' }));
+  }
 
   const loadCampaigns = useCallback(async (pull = false) => {
     if (pull) setRefreshing(true); else setLoadingCampaigns(true);
+    if (mounted.current) setCampaignNotice('');
     try {
       if (!(await isCurrentlyOnline())) throw new Error('offline');
       const result = await getRecruitmentCampaigns();
       if (mounted.current) {
-        setCampaigns(result);
-        setForm((current) => ({ ...current, campaignId: result.some((item) => item.id === current.campaignId) ? current.campaignId : result[0]?.id || '' }));
+        applyCampaigns(result);
+        if (user?.uid) {
+          try { cacheCampaigns(user.uid, result); } catch (cacheError) { console.warn('Could not cache campaigns:', cacheError); }
+        }
         setError(result.length ? '' : 'No active recruitment campaign is assigned to your account. Ask your manager to assign you in Campaigns.');
       }
-    } catch { if (mounted.current) setError('Could not load campaigns. Check your internet connection and pull down to try again.'); }
+    } catch (requestError) {
+      if (!mounted.current) return;
+      if (requestError.response?.status === 401) {
+        Alert.alert('Session expired', 'Please sign in again to load your campaigns.', [{ text: 'Sign in again', onPress: () => signOutRef.current() }], { cancelable: false });
+        return;
+      }
+
+      let cached = [];
+      try { if (user?.uid) cached = getCachedCampaigns(user.uid); } catch (cacheError) { console.warn('Could not read cached campaigns:', cacheError); }
+      if (cached.length) {
+        applyCampaigns(cached);
+        setError('');
+        setCampaignNotice('Showing saved campaign data. Pull down to refresh.');
+      } else if (requestError.response?.status >= 500) {
+        setError('The server is waking up or temporarily unavailable. Pull down to try again in a moment.');
+      } else if (requestError.code === 'ECONNABORTED' || requestError.code === 'ETIMEDOUT') {
+        setError('The server took too long to respond. It may be waking up; pull down to try again.');
+      } else if (requestError.message === 'offline' || !requestError.response) {
+        setError('Could not reach the server. Check your internet connection and pull down to try again.');
+      } else {
+        setError('Could not load campaigns right now. Pull down to try again.');
+      }
+    }
     finally { if (mounted.current) { setLoadingCampaigns(false); setRefreshing(false); } }
-  }, []);
+  }, [user?.uid]);
 
   useFocusEffect(useCallback(() => {
     mounted.current = true;
@@ -110,6 +146,7 @@ export default function NewApplicantScreen({ navigation }) {
         <Text style={[styles.title, { color: colors.ink }]}>Register applicant</Text>
         <Text style={[styles.note, { color: colors.muted }]}>Confirm the applicant agrees before entering their personal information. Their phone number prevents repeat registrations.</Text>
         {loadingCampaigns ? <View style={styles.loading}><ActivityIndicator color={colors.primary}/><Text style={[styles.hint, { color: colors.muted }]}>Loading your team’s campaigns…</Text></View> : null}
+        {campaignNotice ? <Text style={[styles.hint, { color: colors.muted }]}>{campaignNotice}</Text> : null}
         {campaigns.length > 1 ? <View style={styles.field}><Text style={[styles.label, { color: colors.ink }]}>Campaign</Text><View style={styles.choices}>{campaigns.map((campaign) => <Pressable key={campaign.id} onPress={() => update('campaignId', campaign.id)} style={[styles.choice, form.campaignId === campaign.id && styles.chosen]}><Text style={[styles.choiceText, form.campaignId === campaign.id && styles.chosenText]}>{campaign.name}</Text></Pressable>)}</View></View> : campaigns.length === 1 ? <Text style={[styles.campaign, { color: colors.primary }]}>{campaigns[0].name}</Text> : null}
         {field('applicantName', 'Full name', { autoComplete: 'name', maxLength: 160 })}
         {field('applicantIdNumber', 'National ID number', { keyboardType: 'number-pad', autoCapitalize: 'none', digitsOnly: true, maxLength: 10, hint: 'Enter the digits only.' })}
