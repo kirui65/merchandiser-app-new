@@ -92,6 +92,23 @@ function MarkdownMessage({ text }) {
   return <div className="assistant-markdown">{blocks}</div>;
 }
 
+function assistantPdfData(text) {
+  const lines = String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const tableIndex = lines.findIndex((line, index) => line.includes('|') && lines[index + 1] && /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(lines[index + 1]));
+  const clean = (value) => value.replace(/\*\*/g, '').replace(/[`*_]/g, '').trim();
+  if (tableIndex >= 0) {
+    const parse = (line) => line.replace(/^\|\s?/, '').replace(/\s?\|$/, '').split('|').map((cell) => clean(cell));
+    const headers = parse(lines[tableIndex]);
+    const rows = [];
+    let cursor = tableIndex + 2;
+    while (cursor < lines.length && lines[cursor].includes('|')) rows.push(parse(lines[cursor++]));
+    const notes = lines.slice(cursor).filter((line) => line.startsWith('-') || line.toLowerCase().startsWith('observation'));
+    notes.forEach((note) => rows.push(['Observation', clean(note.replace(/^[-•]\s*/, '')), ...Array(Math.max(0, headers.length - 2)).fill('')]));
+    return { headers, rows };
+  }
+  return { headers: ['Response'], rows: [[clean(text)]] };
+}
+
 export default function AssistantPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
@@ -142,9 +159,12 @@ export default function AssistantPage() {
   }
 
   function exportResponse(message, index) {
-    exportPdf('Brandsphere AI response', ['Response'], [[message.text]], {
+    const report = assistantPdfData(message.text);
+    exportPdf('Brandsphere AI response', report.headers, report.rows, {
       filename: `brandsphere-ai-response-${index + 1}.pdf`,
       subtitle: 'Confidential management assistant response',
+      orientation: report.headers.length >= 4 ? 'landscape' : 'portrait',
+      fontSize: 7,
     });
   }
 

@@ -65,7 +65,7 @@ function printableDate(value) {
 export async function exportPdf(title, headers, rows, options = {}) {
   try {
     const logo = await loadCompanyLogo();
-    const wide = headers.length >= 7;
+    const wide = options.orientation === 'landscape' || headers.length >= 7;
     const doc = new jsPDF({
       orientation: wide ? 'landscape' : 'portrait',
       unit: 'mm',

@@ -54,7 +54,6 @@ function sum(records, field) {
 
 function personalRecords(data) {
   if (!env.assistantIncludePersonalData) return undefined;
-  const personal = personalRecords(data);
   return {
     applicants: data.referralRegistrations.map((item) => ({
       id: item.id, applicantName: item.applicantName, phone: item.phone, email: item.email,
@@ -89,6 +88,7 @@ async function loadAssistantContext() {
   const sales = data.sales;
   const transactions = data.mpesaTransactions;
   const reps = data.reps;
+  const personal = personalRecords(data);
 
   return {
     applicants: {
