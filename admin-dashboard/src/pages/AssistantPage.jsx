@@ -26,7 +26,7 @@ function MarkdownMessage({ text }) {
 
   const flushParagraph = () => {
     if (paragraph.length) {
-      blocks.push(<p key={`p-${blocks.length}`}>{paragraph.join(' ')}</p>);
+      blocks.push(<p key={`p-${blocks.length}`}>{renderInlineMarkdown(paragraph.join(' '))}</p>);
       paragraph = [];
     }
   };
