@@ -1,6 +1,7 @@
 const env = require('../config/env');
 const { ApiError } = require('../middleware/errorHandler');
-const { listDocs } = require('./firestore.service');
+const { getFirestore } = require('../config/firebase');
+const { getDoc, listDocs } = require('./firestore.service');
 const { loadCompanyReportData, buildCompanyReport } = require('./companyReport.service');
 
 const MAX_MESSAGE_LENGTH = 2000;
@@ -25,7 +26,8 @@ Rules:
 - Be concise, practical, and specific. Use KSh for money.
 - Do not invent figures, records, people, causes, or recommendations presented as facts.
 - If the context does not answer the question, say what is missing.
-- Treat all data as confidential. Never request or expose passwords, tokens, or raw personal data.
+- Treat all data as confidential. Never request or expose passwords, tokens, authentication fields, or security data.
+- Personal contact fields are available only when the server's explicit manager personal-data setting is enabled; use them only when the manager asks for a specific operational lookup.
 - You may calculate percentages or comparisons from the supplied figures, and label conclusions as observations.
 
 Reporting period: ${range.from.toISOString().slice(0, 10)} to ${range.to.toISOString().slice(0, 10)}
@@ -45,6 +47,26 @@ function countBy(records, field) {
 
 function sum(records, field) {
   return Number(records.reduce((total, record) => total + Number(record[field] || 0), 0).toFixed(2));
+}
+
+function personalRecords(data) {
+  if (!env.assistantIncludePersonalData) return undefined;
+  return {
+    applicants: data.referralRegistrations.map((item) => ({
+      id: item.id, applicantName: item.applicantName, phone: item.phone, email: item.email,
+      county: item.county, education: item.education, passportStatus: item.passportStatus,
+      nitaFeeStatus: item.nitaFeeStatus, status: item.status, source: item.source,
+      campaignId: item.campaignId, recruiterId: item.recruiterId, recruiterName: item.recruiterName,
+      createdAt: item.createdAt, updatedAt: item.updatedAt,
+    })),
+    leads: data.leads.map((item) => ({
+      id: item.id, name: item.name, organization: item.organization, phone: item.phone,
+      email: item.email, status: item.status, score: item.score, notes: item.notes,
+      telemarketerId: item.telemarketerId, campaignId: item.campaignId, updatedAt: item.updatedAt,
+    })),
+    people: data.reps.map((item) => ({ id: item.id, name: item.name, phone: item.phone, email: item.email, role: item.role, active: item.active })),
+    outlets: data.outlets.map((item) => ({ id: item.id, name: item.name, address: item.address, assignedRepId: item.assignedRepId, territoryId: item.territoryId, active: item.active })),
+  };
 }
 
 async function loadAssistantContext() {
@@ -109,6 +131,7 @@ async function loadAssistantContext() {
       broadcasts: data.broadcasts.length,
       salesTargets: data.salesTargets.length,
     },
+    ...(personalRecords(data) ? { personalRecords: personalRecords(data) } : {}),
   };
 }
 
@@ -156,4 +179,58 @@ async function askAssistant({ message, from, to }) {
   return { answer, period: { from: range.from.toISOString().slice(0, 10), to: range.to.toISOString().slice(0, 10) } };
 }
 
-module.exports = { askAssistant, parseDateRange, MAX_MESSAGE_LENGTH };
+function normalizeMessages(messages) {
+  if (!Array.isArray(messages) || messages.length > 100) throw new ApiError(400, 'A conversation can contain up to 100 messages');
+  return messages.map((item) => {
+    if (!['user', 'assistant'].includes(item?.role) || typeof item.text !== 'string' || !item.text.trim() || item.text.length > MAX_MESSAGE_LENGTH) {
+      throw new ApiError(400, 'Conversation messages are invalid');
+    }
+    return { role: item.role, text: item.text.trim(), createdAt: item.createdAt || new Date().toISOString() };
+  });
+}
+
+async function listAssistantConversations(userId) {
+  const conversations = await listDocs('assistantConversations', { where: [['ownerId', '==', userId]], limit: 50 });
+  return conversations
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+    .map(({ messages, ...conversation }) => ({ ...conversation, messageCount: messages?.length || 0, preview: messages?.at(-1)?.text || '' }));
+}
+
+async function getAssistantConversation(userId, id) {
+  const conversation = await getDoc('assistantConversations', id);
+  if (!conversation || conversation.ownerId !== userId) throw new ApiError(404, 'Conversation not found');
+  return conversation;
+}
+
+async function saveAssistantConversation(userId, { id, title, messages }) {
+  const normalized = normalizeMessages(messages);
+  const db = getFirestore();
+  const now = new Date().toISOString();
+  if (id) {
+    const existing = await getAssistantConversation(userId, id);
+    await db.collection('assistantConversations').doc(id).update({
+      messages: normalized,
+      title: title?.trim() || existing.title || normalized.find((item) => item.role === 'user')?.text.slice(0, 80) || 'New conversation',
+      updatedAt: now,
+    });
+    return getAssistantConversation(userId, id);
+  }
+  const ref = db.collection('assistantConversations').doc();
+  await ref.set({
+    ownerId: userId,
+    title: title?.trim() || normalized.find((item) => item.role === 'user')?.text.slice(0, 80) || 'New conversation',
+    messages: normalized,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return getAssistantConversation(userId, ref.id);
+}
+
+module.exports = {
+  askAssistant,
+  parseDateRange,
+  MAX_MESSAGE_LENGTH,
+  listAssistantConversations,
+  getAssistantConversation,
+  saveAssistantConversation,
+};

@@ -50,6 +50,7 @@ module.exports = {
   // Optional manager dashboard assistant. The key stays server-side.
   coarenaApiKey: process.env.COARENA_API_KEY,
   coarenaModel: process.env.COARENA_MODEL || 'claude-fable-5',
+  assistantIncludePersonalData: process.env.ASSISTANT_INCLUDE_PERSONAL_DATA === 'true',
 
   allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',').map((s) => s.trim()),
 };

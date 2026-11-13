@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import client from '../api/client';
 import Button from '../components/Button';
 
@@ -66,8 +66,18 @@ function MarkdownMessage({ text }) {
 export default function AssistantPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [conversationId, setConversationId] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    client.get('/assistant/conversations')
+      .then(({ data }) => setConversations(data.conversations || []))
+      .catch(() => setError('Chat history could not be loaded.'))
+      .finally(() => setHistoryLoading(false));
+  }, []);
 
   async function ask(event) {
     event?.preventDefault();
@@ -79,7 +89,15 @@ export default function AssistantPage() {
     setLoading(true);
     try {
       const { data } = await client.post('/assistant/chat', { message });
-      setMessages((current) => [...current, { role: 'assistant', text: data.answer }]);
+      const assistantMessage = { role: 'assistant', text: data.answer };
+      const nextMessages = [...messages, { role: 'user', text: message }, assistantMessage];
+      setMessages((current) => [...current, assistantMessage]);
+      const historyResponse = conversationId
+        ? await client.patch(`/assistant/conversations/${conversationId}`, { messages: nextMessages })
+        : await client.post('/assistant/conversations', { title: message.slice(0, 80), messages: nextMessages });
+      const saved = historyResponse.data.conversation;
+      setConversationId(saved.id);
+      setConversations((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
     } catch (requestError) {
       setError(requestError.response?.data?.error?.message || 'The assistant could not answer right now.');
     } finally {
@@ -89,8 +107,20 @@ export default function AssistantPage() {
 
   function resetChat() {
     setMessages([]);
+    setConversationId(null);
     setError('');
     setInput('');
+  }
+
+  async function openConversation(id) {
+    setError('');
+    try {
+      const { data } = await client.get(`/assistant/conversations/${id}`);
+      setConversationId(data.conversation.id);
+      setMessages(data.conversation.messages || []);
+    } catch (requestError) {
+      setError(requestError.response?.data?.error?.message || 'Conversation could not be loaded.');
+    }
   }
 
   return (
@@ -110,6 +140,17 @@ export default function AssistantPage() {
             {messages.length > 0 && <button type="button" className="assistant-clear" onClick={resetChat}>New chat</button>}
           </div>
         </header>
+
+        {conversations.length > 0 && (
+          <div className="assistant-history-strip">
+            <span>Recent chats</span>
+            {historyLoading ? <small>Loading…</small> : conversations.slice(0, 5).map((conversation) => (
+              <button type="button" className={conversation.id === conversationId ? 'is-active' : ''} key={conversation.id} onClick={() => openConversation(conversation.id)}>
+                {conversation.title || 'Untitled conversation'}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="assistant-privacy"><span aria-hidden="true">▣</span> Read-only insights from your management data. The assistant cannot change records.</div>
 

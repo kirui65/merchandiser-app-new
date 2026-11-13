@@ -26,6 +26,7 @@ Add these environment variables as Render secrets (do not commit them):
 - `ALLOWED_ORIGINS` — initially the eventual Vercel URL, for example `https://brandsphere-dashboard.vercel.app`. Multiple origins are comma-separated.
 - `COARENA_API_KEY` — Coarena personal key for the protected manager dashboard assistant. Keep it as a Render secret; never add it to the dashboard environment or source control.
 - `COARENA_MODEL` — optional Coarena model name; defaults to `claude-fable-5`.
+- `ASSISTANT_INCLUDE_PERSONAL_DATA` — set to `true` only if you accept sending manager-requested names, phone numbers, and email addresses to Coarena. Authentication secrets and password fields are always excluded.
 
 Render supplies `PORT`; do not set it. After deploy, verify `https://<render-service>.onrender.com/health` returns `{ "status": "ok" }`.
 
