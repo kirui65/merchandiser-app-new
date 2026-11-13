@@ -174,8 +174,8 @@ export default function SettingsPage() {
               <span>
                 <strong>Email a sales summary automatically</strong>
                 <small className="muted">
-                  Totals, change from the previous period, top representatives and teams, with a
-                  CSV attached.
+                  Summary, sales, leads, referral applicants and field activity reports, each as a
+                  PDF attachment.
                 </small>
               </span>
             </label>

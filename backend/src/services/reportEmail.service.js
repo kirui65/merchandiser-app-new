@@ -113,7 +113,7 @@ ${stat('New leads', summary.leads)}
 </tr></table>
 ${table('Top representatives', summary.topReps)}
 ${table('Top teams', summary.topTeams)}
-<p style="font-size:13px;color:#5d6b7e;margin-top:24px;">${summary.merchandisingAudits} merchandising audits recorded. Voided sales are excluded. The attached CSV contains the same figures.</p>
+<p style="font-size:13px;color:#5d6b7e;margin-top:24px;">${summary.merchandisingAudits} merchandising audits recorded. Voided sales are excluded. Separate PDF attachments contain the detailed reports.</p>
 ${dashboardUrl ? `<p style="margin-top:20px;"><a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;padding:10px 16px;background:#24445b;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;">Open dashboard</a></p>` : ''}
 </td></tr></table></body></html>`;
 }
@@ -138,20 +138,204 @@ function renderReportCsv(summary) {
   return rows.map((row) => row.map(csvValue).join(',')).join('\n');
 }
 
+function pdfText(value) {
+  return String(value ?? '')
+    .replace(/[\x00-\x1f\x7f-\x9f]/g, ' ')
+    .replace(/[^\x00-\x7f]/g, (character) => ({ '–': '-', '—': '-', '·': '-', '▲': '+', '▼': '-' }[character] || '?'));
+}
+
+function pdfEscape(value) {
+  return pdfText(value).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+
+function wrapPdfText(value, width = 94) {
+  const words = pdfText(value).split(/\s+/);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    if (!word) continue;
+    if (line && `${line} ${word}`.length > width) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = line ? `${line} ${word}` : word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [''];
+}
+
+// Small dependency-free PDF writer. Reports are intentionally text-first so
+// they remain readable and dependable on email clients and mobile devices.
+function renderReportPdf(title, periodLabel, sections) {
+  const lines = [
+    'BRANDSPHERE MANAGEMENT REPORT',
+    title,
+    `Period: ${periodLabel}`,
+    `Generated: ${new Date().toISOString()}`,
+    '',
+  ];
+  for (const section of sections) {
+    lines.push(section.title.toUpperCase());
+    for (const row of section.rows) {
+      const text = Array.isArray(row) ? row.join(' | ') : row;
+      lines.push(...wrapPdfText(text));
+    }
+    lines.push('');
+  }
+
+  const pages = [];
+  for (let index = 0; index < lines.length; index += 48) pages.push(lines.slice(index, index + 48));
+  const objects = [];
+  const addObject = (body) => { objects.push(body); return objects.length; };
+  const fontId = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  const pageIds = [];
+  for (const pageLines of pages) {
+    let commands = 'BT\n/F1 10 Tf\n50 790 Td\n';
+    pageLines.forEach((line, lineIndex) => {
+      const size = lineIndex === 0 ? 14 : lineIndex === 1 ? 12 : 10;
+      if (lineIndex === 0) commands += `/F1 ${size} Tf\n`;
+      if (lineIndex === 1) commands += `/F1 ${size} Tf\n`;
+      if (lineIndex > 1 && line === line.toUpperCase() && line.length > 2) commands += `/F1 10 Tf\n`;
+      commands += `(${pdfEscape(line)}) Tj\n0 -15 Td\n`;
+    });
+    commands += 'ET';
+    const contentId = addObject(`<< /Length ${Buffer.byteLength(commands, 'latin1')} >>\nstream\n${commands}\nendstream`);
+    const pageId = addObject(`<< /Type /Page /Parent PAGES_ID 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    pageIds.push(pageId);
+  }
+  const pagesId = addObject(`<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`);
+  const catalogId = addObject(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+  const pdfObjects = objects.map((object) => object.replaceAll('PAGES_ID', String(pagesId)));
+  let output = '%PDF-1.4\n';
+  const offsets = [0];
+  pdfObjects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(output, 'latin1'));
+    output += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(output, 'latin1');
+  output += `xref\n0 ${pdfObjects.length + 1}\n0000000000 65535 f \n`;
+  for (let index = 1; index < offsets.length; index += 1) output += `${String(offsets[index]).padStart(10, '0')} 00000 n \n`;
+  output += `trailer\n<< /Size ${pdfObjects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return Buffer.from(output, 'latin1');
+}
+
+function valueDate(value) {
+  if (value && typeof value.toDate === 'function') return value.toDate();
+  if (value && typeof value.toMillis === 'function') return new Date(value.toMillis());
+  if (value && typeof value._seconds === 'number') return new Date(value._seconds * 1000);
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function inPeriod(record, field, period) {
+  const date = valueDate(record[field]);
+  return date && date >= period.from && date < period.to;
+}
+
+function reportFileName(value) {
+  return pdfText(value).replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'brandsphere';
+}
+
+function buildPdfAttachments(reportPackage, settings) {
+  const { period, summary, current, referrals, calls, names } = reportPackage;
+  const { reps, outlets, products } = names;
+  const repName = (id) => reps.get(id) || id || 'Unassigned';
+  const outletName = (id) => outlets.get(id) || id || 'Unknown outlet';
+  const productName = (id) => products.get(id) || id || 'Unknown product';
+  const filePrefix = reportFileName(settings.companyName);
+  const attachment = (slug, title, sections) => ({
+    filename: `${filePrefix}-${slug}-${businessDateKey(period.from)}.pdf`,
+    content: renderReportPdf(title, period.label, sections).toString('base64'),
+  });
+  const activeSales = current.sales.filter(isActiveSale);
+  const activeReferrals = referrals.filter((referral) => inPeriod(referral, 'createdAt', period));
+  const activeLeads = current.leads;
+  const fieldRows = [
+    ['Activations', current.activations.length, `Footfall: ${current.activations.reduce((sum, item) => sum + Number(item.footfallCount || 0), 0)}`],
+    ['Merchandising audits', current.audits.length, `Low-stock flags: ${current.audits.reduce((sum, item) => sum + (item.stockChecks || []).filter((check) => check.lowStock).length, 0)}`],
+  ];
+  return [
+    attachment('summary-report', 'Executive summary', [{
+      title: 'Key metrics',
+      rows: [
+        ['Sales value', ksh(summary.sales.total), changeText(summary.sales.changePercent)],
+        ['Sales transactions', summary.sales.count],
+        ['Activations', summary.activations],
+        ['Leads', summary.leads],
+        ['Referral applicants', activeReferrals.length],
+        ['Merchandising audits', summary.merchandisingAudits],
+      ],
+    }, {
+      title: 'Top representatives',
+      rows: summary.topReps.map((rep, index) => [`${index + 1}. ${rep.name}`, `${rep.count} sales`, ksh(rep.total)]),
+    }, {
+      title: 'Top teams',
+      rows: summary.topTeams.map((team, index) => [`${index + 1}. ${team.name}`, `${team.count} sales`, ksh(team.total)]),
+    }]),
+    attachment('sales-report', 'Sales report', [{
+      title: `Transactions (${activeSales.length})`,
+      rows: activeSales.length
+        ? activeSales.map((sale) => [valueDate(sale.timestamp)?.toISOString().slice(0, 16) || 'Unknown date', repName(sale.repId), outletName(sale.outletId), productName(sale.productId), `Qty ${sale.qty}`, ksh(sale.total)])
+        : ['No active sales recorded in this period.'],
+    }]),
+    attachment('leads-report', 'Leads report', [{
+      title: `Lead pipeline (${activeLeads.length})`,
+      rows: activeLeads.length
+        ? activeLeads.map((lead) => [valueDate(lead.createdAt)?.toISOString().slice(0, 16) || 'Unknown date', lead.name, lead.organization || '', lead.status, lead.score || 'unscored', lead.source || ''])
+        : ['No leads recorded in this period.'],
+    }]),
+    attachment('referral-applicants-report', 'Referral applicants report', [{
+      title: `Applicants (${activeReferrals.length})`,
+      rows: activeReferrals.length
+        ? activeReferrals.map((referral) => [valueDate(referral.createdAt)?.toISOString().slice(0, 16) || 'Unknown date', referral.applicantName, referral.phone, referral.email, referral.county, referral.status, referral.source || ''])
+        : ['No referral applicants recorded in this period.'],
+    }]),
+    attachment('field-activity-report', 'Field activity report', [{
+      title: 'Activity totals',
+      rows: fieldRows,
+    }, {
+      title: `Calls logged (${calls.length})`,
+      rows: calls.length ? calls.map((call) => [valueDate(call.startedAt)?.toISOString().slice(0, 16) || 'Unknown date', call.outcome || call.status || 'call', call.telemarketerId || 'Unassigned', call.leadId || '']) : ['No calls recorded in this period.'],
+    }]),
+  ];
+}
+
 async function buildScheduledReport(period) {
-  const [current, previous, reps] = await Promise.all([
+  const [current, previous, reps, referrals, calls, outlets, products] = await Promise.all([
     loadCompanyReportData(period.from, new Date(period.to.getTime() - 1)),
     loadCompanyReportData(period.previousFrom, new Date(period.from.getTime() - 1)),
     listDocs('reps'),
+    listDocs('referralRegistrations'),
+    listDocs('calls'),
+    listDocs('outlets'),
+    listDocs('products'),
   ]);
   const range = (from, to) => ({ from: from.getTime(), to: to.getTime() - 1 });
-  return buildReportSummary({
+  const summary = buildReportSummary({
     period,
     current: buildCompanyReport({ ...current, ...range(period.from, period.to) }),
     previous: buildCompanyReport({ ...previous, ...range(period.previousFrom, period.from) }),
     currentSales: current.sales,
     reps,
   });
+  return {
+    period,
+    summary,
+    current: {
+      ...current,
+      leads: current.leads.filter((lead) => inPeriod(lead, 'createdAt', period)),
+      activations: current.activations.filter((activation) => inPeriod(activation, 'startedAt', period)),
+      audits: current.audits.filter((audit) => inPeriod(audit, 'observedAt', period)),
+    },
+    referrals,
+    calls: calls.filter((call) => inPeriod(call, 'startedAt', period)),
+    names: {
+      reps: new Map(reps.map((rep) => [rep.id, rep.name])),
+      outlets: new Map(outlets.map((outlet) => [outlet.id, outlet.name])),
+      products: new Map(products.map((product) => [product.id, product.name])),
+    },
+  };
 }
 
 async function sendEmail({ to, subject, html, attachments }) {
@@ -171,16 +355,15 @@ async function sendEmail({ to, subject, html, attachments }) {
 }
 
 async function sendReport({ recipients, period, settings }) {
-  const summary = await buildScheduledReport(period);
+  const reportPackage = await buildScheduledReport(period);
+  const summary = reportPackage.summary;
   const companyName = settings.companyName;
   await sendEmail({
     to: recipients,
-    subject: `${companyName} ${period.frequency} report · ${period.label}`,
-    html: renderReportHtml(summary, { companyName, dashboardUrl: env.dashboardUrl }),
-    attachments: [{
-      filename: `${companyName.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${period.frequency}-report-${businessDateKey(period.from)}.csv`,
-      content: Buffer.from(renderReportCsv(summary)).toString('base64'),
-    }],
+    subject: `${companyName} ${period.frequency} management reports · ${period.label}`,
+    html: renderReportHtml(summary, { companyName, dashboardUrl: env.dashboardUrl })
+      .replace('The attached CSV contains the same figures.', 'Separate PDF attachments include the summary, sales, leads, referral applicants, and field activity reports.'),
+    attachments: buildPdfAttachments(reportPackage, settings),
   });
   return summary;
 }
@@ -210,6 +393,7 @@ module.exports = {
   buildReportSummary,
   renderReportHtml,
   renderReportCsv,
+  renderReportPdf,
   runScheduledReport,
   sendTestReport,
 };

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { SettingsSchema, SettingsUpdateSchema, withDefaults } = require('../src/models/settings.model');
-const { reportPeriod, shouldSendScheduledReport, secretMatches, percentChange, renderReportHtml, renderReportCsv } = require('../src/services/reportEmail.service');
+const { reportPeriod, shouldSendScheduledReport, secretMatches, percentChange, renderReportHtml, renderReportCsv, renderReportPdf } = require('../src/services/reportEmail.service');
 const { filterAuditEntries } = require('../src/services/audit.service');
 const { monthElapsedFraction, repsBehindTarget, buildNotificationItems } = require('../src/services/notifications.service');
 const { monthToDate } = require('../src/services/recordOverview.service');
@@ -71,6 +71,7 @@ test('report email escapes names and reports percentage change', () => {
   assert.ok(html.includes('&lt;b&gt;Amina&lt;/b&gt;'));
   assert.ok(html.includes('▲ 50% vs previous period'));
   assert.ok(renderReportCsv(summary).includes('"<b>Amina</b>, ""A"""'));
+  assert.ok(renderReportPdf('Sales report', summary.period.label, [{ title: 'Sales', rows: [['Amina', 'KSh 1,500']] }]).toString('latin1').startsWith('%PDF-1.4'));
 });
 
 test('audit filters match actor, entity, action, text and inclusive business dates', () => {
