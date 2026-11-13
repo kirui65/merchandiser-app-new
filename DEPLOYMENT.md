@@ -24,8 +24,8 @@ Add these environment variables as Render secrets (do not commit them):
 - `GEOFENCE_RADIUS_METERS` — normally `100`.
 - `OUTLET_OVERDUE_DAYS` — normally `7`.
 - `ALLOWED_ORIGINS` — initially the eventual Vercel URL, for example `https://brandsphere-dashboard.vercel.app`. Multiple origins are comma-separated.
-- `GEMINI_API_KEY` — optional Google AI Studio key for the protected manager dashboard assistant. Keep it as a Render secret; never add it to the dashboard environment or source control.
-- `GEMINI_MODEL` — optional Gemini model name; defaults to `gemini-2.0-flash`.
+- `COARENA_API_KEY` — Coarena personal key for the protected manager dashboard assistant. Keep it as a Render secret; never add it to the dashboard environment or source control.
+- `COARENA_MODEL` — optional Coarena model name; defaults to `claude-fable-5`.
 
 Render supplies `PORT`; do not set it. After deploy, verify `https://<render-service>.onrender.com/health` returns `{ "status": "ok" }`.
 

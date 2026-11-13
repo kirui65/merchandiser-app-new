@@ -17,7 +17,7 @@ function parseDateRange(fromValue, toValue) {
   return { from, to };
 }
 
-function buildPrompt(message, report, range) {
+function buildSystemPrompt(report, range) {
   return `You are the Brandsphere management assistant. Answer the manager's question using only the supplied aggregate report context.
 
 Rules:
@@ -31,12 +31,11 @@ Reporting period: ${range.from.toISOString().slice(0, 10)} to ${range.to.toISOSt
 Aggregate report context:
 ${JSON.stringify(report)}
 
-Manager question:
-${message}`;
+The manager's question will be provided as the next user message.`;
 }
 
 async function askAssistant({ message, from, to }) {
-  if (!env.geminiApiKey) throw new ApiError(503, 'The AI assistant is not configured yet');
+  if (!env.coarenaApiKey) throw new ApiError(503, 'The AI assistant is not configured yet');
   if (typeof message !== 'string' || !message.trim()) throw new ApiError(400, 'Enter a question for the assistant');
   if (message.trim().length > MAX_MESSAGE_LENGTH) throw new ApiError(400, `Questions must be ${MAX_MESSAGE_LENGTH} characters or fewer`);
 
@@ -47,12 +46,20 @@ async function askAssistant({ message, from, to }) {
     from: range.from.getTime(),
     to: range.to.getTime(),
   });
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.geminiModel)}:generateContent?key=${encodeURIComponent(env.geminiApiKey)}`, {
+  const response = await fetch('https://coarena.ai/api/v1/chat/completions', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      Authorization: `Bearer ${env.coarenaApiKey}`,
+    },
     body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: buildPrompt(message.trim(), report, range) }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 700 },
+      model: env.coarenaModel,
+      messages: [
+        { role: 'system', content: buildSystemPrompt(report, range) },
+        { role: 'user', content: message.trim() },
+      ],
+      temperature: 0.2,
+      max_tokens: 700,
     }),
   });
   if (!response.ok) {
@@ -60,7 +67,7 @@ async function askAssistant({ message, from, to }) {
     throw new ApiError(502, `The AI provider rejected the request (${response.status})`, { detail: detail.slice(0, 240) });
   }
   const payload = await response.json();
-  const answer = payload.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('').trim();
+  const answer = payload.choices?.[0]?.message?.content?.trim();
   if (!answer) throw new ApiError(502, 'The AI provider returned an empty response');
   return { answer, period: { from: range.from.toISOString().slice(0, 10), to: range.to.toISOString().slice(0, 10) } };
 }

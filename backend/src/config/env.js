@@ -48,8 +48,8 @@ module.exports = {
   dashboardUrl: process.env.DASHBOARD_URL,
 
   // Optional manager dashboard assistant. The key stays server-side.
-  geminiApiKey: process.env.GEMINI_API_KEY,
-  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+  coarenaApiKey: process.env.COARENA_API_KEY,
+  coarenaModel: process.env.COARENA_MODEL || 'claude-fable-5',
 
   allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',').map((s) => s.trim()),
 };
