@@ -3099,6 +3099,13 @@ tbody tr:hover {
 .assistant-message-content strong { color: var(--brand-navy, #173a55); font-size: 11px; }
 .assistant-message-user .assistant-message-content strong { color: rgba(255,255,255,.72); }
 .assistant-message p { margin: 5px 0 0; white-space: pre-wrap; line-height: 1.6; font-size: 13px; }
+.assistant-markdown { margin-top: 5px; font-size: 13px; line-height: 1.6; }
+.assistant-markdown p { margin: 0 0 10px; white-space: normal; }
+.assistant-markdown p:last-child { margin-bottom: 0; }
+.assistant-markdown h3 { margin: 0 0 8px; font-size: 14px; line-height: 1.4; }
+.assistant-markdown ul { margin: 5px 0 10px; padding-left: 20px; }
+.assistant-markdown li { margin: 4px 0; }
+.assistant-markdown code { padding: 2px 5px; border-radius: 4px; background: rgba(23,58,85,.1); font-size: .92em; }
 .assistant-message-user p { margin-top: 3px; }
 .assistant-thinking { display: flex; align-items: center; gap: 4px; color: var(--brand-muted, #687a80); }
 .assistant-thinking i { width: 5px; height: 5px; border-radius: 50%; background: var(--brand-green, #709d38); animation: assistant-pulse 1.2s infinite ease-in-out; }

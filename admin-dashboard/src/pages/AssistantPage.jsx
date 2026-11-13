@@ -8,6 +8,61 @@ const starters = [
   'Compare the strongest and weakest team activity.',
 ];
 
+function renderInlineMarkdown(text) {
+  const parts = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) return <strong key={index}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith('`') && part.endsWith('`')) return <code key={index}>{part.slice(1, -1)}</code>;
+    if (part.startsWith('*') && part.endsWith('*')) return <em key={index}>{part.slice(1, -1)}</em>;
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+}
+
+function MarkdownMessage({ text }) {
+  const lines = String(text || '').split(/\r?\n/);
+  const blocks = [];
+  let paragraph = [];
+  let list = [];
+
+  const flushParagraph = () => {
+    if (paragraph.length) {
+      blocks.push(<p key={`p-${blocks.length}`}>{paragraph.join(' ')}</p>);
+      paragraph = [];
+    }
+  };
+  const flushList = () => {
+    if (list.length) {
+      blocks.push(<ul key={`ul-${blocks.length}`}>{list.map((item, index) => <li key={index}>{renderInlineMarkdown(item)}</li>)}</ul>);
+      list = [];
+    }
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushParagraph();
+      flushList();
+      return;
+    }
+    const heading = trimmed.match(/^#{1,3}\s+(.+)$/);
+    const bullet = trimmed.match(/^[-*]\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      blocks.push(<h3 key={`h-${blocks.length}`}>{renderInlineMarkdown(heading[1])}</h3>);
+    } else if (bullet) {
+      flushParagraph();
+      list.push(bullet[1]);
+    } else {
+      flushList();
+      paragraph.push(trimmed);
+    }
+  });
+  flushParagraph();
+  flushList();
+  return <div className="assistant-markdown">{blocks}</div>;
+}
+
 export default function AssistantPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
@@ -74,7 +129,7 @@ export default function AssistantPage() {
               {message.role === 'assistant' && <div className="assistant-avatar" aria-hidden="true">✦</div>}
               <div className="assistant-message-content">
                 <strong>{message.role === 'user' ? 'You' : 'Brandsphere AI'}</strong>
-                <p>{message.text}</p>
+                <MarkdownMessage text={message.text} />
               </div>
             </div>
           ))}
