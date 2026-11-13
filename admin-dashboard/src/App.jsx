@@ -38,6 +38,7 @@ const RecruitersPage = lazy(() => import('./pages/RecruitersPage.jsx'));
 const PublicApplicationPage = lazy(() => import('./pages/PublicApplicationPage.jsx'));
 const RecruiterPortal = lazy(() => import('./pages/RecruiterPortal.jsx'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
+const AssistantPage = lazy(() => import('./pages/AssistantPage.jsx'));
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -75,6 +76,7 @@ function Shell({ children }) {
       [
         ['/', 'Overview'],
         ['/company-report', 'Company report'],
+        ['/assistant', 'AI assistant'],
       ],
     ],
     [
@@ -300,6 +302,15 @@ function Shell({ children }) {
           </Suspense>
         </div>
       </main>
+      <NavLink
+        className="assistant-floating-button"
+        to="/assistant"
+        aria-label="Open AI assistant"
+        title="Open AI assistant"
+      >
+        <span className="assistant-floating-icon" aria-hidden="true">✦</span>
+        <span>Ask assistant</span>
+      </NavLink>
       {commandOpen && (
         <div className="command-backdrop" onMouseDown={() => setCommandOpen(false)}>
           <section
@@ -561,6 +572,16 @@ export default function App() {
                   <RequireAuth>
                     <Shell>
                       <SettingsPage />
+                    </Shell>
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/assistant"
+                element={
+                  <RequireAuth>
+                    <Shell>
+                      <AssistantPage />
                     </Shell>
                   </RequireAuth>
                 }

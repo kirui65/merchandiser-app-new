@@ -47,5 +47,9 @@ module.exports = {
   reportsCronSecret: process.env.REPORTS_CRON_SECRET,
   dashboardUrl: process.env.DASHBOARD_URL,
 
+  // Optional manager dashboard assistant. The key stays server-side.
+  geminiApiKey: process.env.GEMINI_API_KEY,
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+
   allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',').map((s) => s.trim()),
 };
