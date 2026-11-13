@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import client from '../api/client';
 import Button from '../components/Button';
-import { businessDateKey, businessDateStartIso, businessDateEndIso } from '../utils/businessDate';
-
-const today = businessDateKey();
-const monthStart = `${today.slice(0, 7)}-01`;
 
 const starters = [
   'Summarise sales performance for this period.',
@@ -13,8 +9,6 @@ const starters = [
 ];
 
 export default function AssistantPage() {
-  const [from, setFrom] = useState(monthStart);
-  const [to, setTo] = useState(today);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -29,11 +23,7 @@ export default function AssistantPage() {
     setInput('');
     setLoading(true);
     try {
-      const { data } = await client.post('/assistant/chat', {
-        message,
-        from: businessDateStartIso(from).slice(0, 10),
-        to: businessDateEndIso(to).slice(0, 10),
-      });
+      const { data } = await client.post('/assistant/chat', { message });
       setMessages((current) => [...current, { role: 'assistant', text: data.answer }]);
     } catch (requestError) {
       setError(requestError.response?.data?.error?.message || 'The assistant could not answer right now.');
@@ -42,42 +32,59 @@ export default function AssistantPage() {
     }
   }
 
+  function resetChat() {
+    setMessages([]);
+    setError('');
+    setInput('');
+  }
+
   return (
     <main className="page assistant-page">
-      <header className="page-header">
-        <div>
-          <span className="eyebrow">MANAGEMENT INTELLIGENCE</span>
-          <h1>AI assistant</h1>
-          <p className="muted">Ask questions about aggregate company performance for a selected period.</p>
-        </div>
-      </header>
-
-      <section className="card assistant-card">
-        <div className="assistant-notice">
-          The assistant uses read-only management report data. It cannot change records or access passwords and secrets.
-        </div>
-        <div className="assistant-period">
-          <label>From<input type="date" value={from} max={to} onChange={(event) => setFrom(event.target.value)} /></label>
-          <label>To<input type="date" value={to} min={from} max={today} onChange={(event) => setTo(event.target.value)} /></label>
-        </div>
-        {!messages.length && (
-          <div className="assistant-starters">
-            {starters.map((starter) => <button type="button" key={starter} onClick={() => setInput(starter)}>{starter}</button>)}
+      <section className="assistant-workspace">
+        <header className="assistant-header">
+          <div className="assistant-title-block">
+            <div className="assistant-avatar assistant-avatar-large" aria-hidden="true">✦</div>
+            <div>
+              <span className="eyebrow">BRANDSPHERE INTELLIGENCE</span>
+              <h1>How can I help?</h1>
+              <p>Ask about sales, leads, field activity, and what deserves your attention.</p>
+            </div>
           </div>
-        )}
-        <div className="assistant-messages" aria-live="polite">
+          <div className="assistant-header-actions">
+            <span className="assistant-online"><i /> Online</span>
+            {messages.length > 0 && <button type="button" className="assistant-clear" onClick={resetChat}>New chat</button>}
+          </div>
+        </header>
+
+        <div className="assistant-privacy"><span aria-hidden="true">▣</span> Read-only insights from your management data. The assistant cannot change records.</div>
+
+        <div className={`assistant-conversation ${messages.length ? 'has-messages' : ''}`} aria-live="polite">
+          {!messages.length && (
+            <div className="assistant-welcome">
+              <div className="assistant-welcome-icon" aria-hidden="true">✦</div>
+              <h2>Your management co-pilot</h2>
+              <p>Get a quick, practical read on your business. Try one of these questions or write your own below.</p>
+              <div className="assistant-starters">
+                {starters.map((starter) => <button type="button" key={starter} onClick={() => setInput(starter)}><span aria-hidden="true">↗</span>{starter}</button>)}
+              </div>
+            </div>
+          )}
           {messages.map((message, index) => (
             <div className={`assistant-message assistant-message-${message.role}`} key={`${message.role}-${index}`}>
-              <strong>{message.role === 'user' ? 'You' : 'Assistant'}</strong>
-              <p>{message.text}</p>
+              {message.role === 'assistant' && <div className="assistant-avatar" aria-hidden="true">✦</div>}
+              <div className="assistant-message-content">
+                <strong>{message.role === 'user' ? 'You' : 'Brandsphere AI'}</strong>
+                <p>{message.text}</p>
+              </div>
             </div>
           ))}
-          {loading && <div className="assistant-message assistant-message-assistant"><strong>Assistant</strong><p>Reviewing the selected period…</p></div>}
+          {loading && <div className="assistant-message assistant-message-assistant"><div className="assistant-avatar" aria-hidden="true">✦</div><div className="assistant-message-content"><strong>Brandsphere AI</strong><p className="assistant-thinking"><i /><i /><i /> Thinking</p></div></div>}
         </div>
+
         {error && <div className="error-banner">{error}</div>}
         <form className="assistant-composer" onSubmit={ask}>
-          <textarea value={input} maxLength={2000} onChange={(event) => setInput(event.target.value)} placeholder="Ask a management question…" rows={3} />
-          <div className="assistant-composer-footer"><small>{input.length}/2000</small><Button type="submit" disabled={loading || !input.trim()}>{loading ? 'Thinking…' : 'Ask assistant'}</Button></div>
+          <textarea value={input} maxLength={2000} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); ask(event); } }} placeholder="Message your assistant…" rows={1} aria-label="Message your assistant" />
+          <div className="assistant-composer-footer"><small>Enter to send · Shift + Enter for a new line</small><Button type="submit" disabled={loading || !input.trim()} aria-label="Send message">↑</Button></div>
         </form>
       </section>
     </main>
