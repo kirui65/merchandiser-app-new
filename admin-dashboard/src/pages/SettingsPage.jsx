@@ -5,6 +5,13 @@ import Card from '../components/Card';
 import { apiErrorMessage, useToast } from '../components/Feedback';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const REPORT_OPTIONS = [
+  ['summary', 'Executive summary'],
+  ['sales', 'Sales'],
+  ['leads', 'Leads'],
+  ['referrals', 'Referral applicants'],
+  ['field_activity', 'Field activity'],
+];
 
 function parseRecipients(text) {
   return text
@@ -51,10 +58,21 @@ export default function SettingsPage() {
     update({ workWeekDays: days });
   }
 
+  function toggleReport(reportType) {
+    const includedReports = form.reports.includedReports.includes(reportType)
+      ? form.reports.includedReports.filter((value) => value !== reportType)
+      : [...form.reports.includedReports, reportType];
+    updateReports({ includedReports });
+  }
+
   async function save(event) {
     event.preventDefault();
     if (!form.workWeekDays.length) {
       toast.error('Choose at least one working day.');
+      return;
+    }
+    if (!form.reports.includedReports.length) {
+      toast.error('Choose at least one report to attach.');
       return;
     }
     setSaving(true);
@@ -195,6 +213,19 @@ export default function SettingsPage() {
                 </small>
               </span>
             </label>
+            <fieldset className="settings-days settings-report-types">
+              <legend>PDF reports to attach</legend>
+              {REPORT_OPTIONS.map(([value, label]) => (
+                <label key={value} className="settings-chip">
+                  <input
+                    type="checkbox"
+                    checked={form.reports.includedReports.includes(value)}
+                    onChange={() => toggleReport(value)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
             <div className="grid-2">
               <div className="field">
                 <label htmlFor="settings-frequency">How often</label>

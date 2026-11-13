@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { SettingsSchema, SettingsUpdateSchema, withDefaults } = require('../src/models/settings.model');
+const { REPORT_TYPES, SettingsSchema, SettingsUpdateSchema, withDefaults } = require('../src/models/settings.model');
 const { reportPeriod, customReportPeriod, shouldSendScheduledReport, secretMatches, percentChange, renderReportHtml, renderReportCsv, renderReportPdf } = require('../src/services/reportEmail.service');
 const { filterAuditEntries } = require('../src/services/audit.service');
 const { monthElapsedFraction, repsBehindTarget, buildNotificationItems } = require('../src/services/notifications.service');
@@ -9,11 +9,12 @@ const { monthToDate } = require('../src/services/recordOverview.service');
 test('settings fill in defaults and accept valid partial updates', () => {
   const settings = withDefaults({ companyName: 'Acme', reports: { enabled: true } });
   assert.equal(settings.companyName, 'Acme');
-  assert.deepEqual(settings.reports, { enabled: true, frequency: 'weekly', weekday: 1, recipients: [] });
+  assert.deepEqual(settings.reports, { enabled: true, frequency: 'weekly', weekday: 1, recipients: [], includedReports: REPORT_TYPES });
   assert.equal(SettingsSchema.safeParse(settings).success, true);
   const update = SettingsUpdateSchema.parse({ workWeekDays: [5, 1, 1], reports: { recipients: ['Boss@Example.com '] } });
   assert.deepEqual(update.workWeekDays, [1, 5]);
   assert.deepEqual(update.reports.recipients, ['boss@example.com']);
+  assert.deepEqual(update.reports.includedReports, undefined);
 });
 
 test('settings reject empty updates and invalid values', () => {
@@ -22,6 +23,7 @@ test('settings reject empty updates and invalid values', () => {
   assert.equal(SettingsUpdateSchema.safeParse({ workWeekDays: [7] }).success, false);
   assert.equal(SettingsUpdateSchema.safeParse({ reports: { recipients: ['not-an-email'] } }).success, false);
   assert.equal(SettingsUpdateSchema.safeParse({ reports: { frequency: 'monthly' } }).success, false);
+  assert.equal(SettingsUpdateSchema.safeParse({ reports: { includedReports: [] } }).success, false);
 });
 
 test('report periods end at the start of the Nairobi business day', () => {

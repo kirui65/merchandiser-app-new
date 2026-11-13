@@ -1,12 +1,15 @@
 const { z } = require('zod');
 
 const WeekdaySchema = z.number().int().min(0).max(6);
+const REPORT_TYPES = Object.freeze(['summary', 'sales', 'leads', 'referrals', 'field_activity']);
+const ReportTypeSchema = z.enum(REPORT_TYPES);
 
 const ReportSettingsSchema = z.object({
   enabled: z.boolean(),
   frequency: z.enum(['daily', 'weekly']),
   weekday: WeekdaySchema,
   recipients: z.array(z.string().trim().toLowerCase().email()).max(20),
+  includedReports: z.array(ReportTypeSchema).min(1).max(REPORT_TYPES.length),
 });
 
 const SettingsSchema = z.object({
@@ -28,7 +31,13 @@ const DEFAULT_SETTINGS = Object.freeze({
   workWeekDays: [1, 2, 3, 4, 5, 6],
   defaultMonthlyTargetKsh: 0,
   defaultCommissionKsh: 0,
-  reports: { enabled: false, frequency: 'weekly', weekday: 1, recipients: [] },
+  reports: {
+    enabled: false,
+    frequency: 'weekly',
+    weekday: 1,
+    recipients: [],
+    includedReports: [...REPORT_TYPES],
+  },
 });
 
 function withDefaults(stored = {}) {
@@ -39,4 +48,4 @@ function withDefaults(stored = {}) {
   };
 }
 
-module.exports = { SettingsSchema, SettingsUpdateSchema, DEFAULT_SETTINGS, withDefaults };
+module.exports = { REPORT_TYPES, SettingsSchema, SettingsUpdateSchema, DEFAULT_SETTINGS, withDefaults };

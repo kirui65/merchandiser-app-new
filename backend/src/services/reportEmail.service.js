@@ -3,6 +3,7 @@ const env = require('../config/env');
 const { getDoc, setDoc, listDocs } = require('./firestore.service');
 const { buildCompanyReport, loadCompanyReportData } = require('./companyReport.service');
 const { getSettings } = require('./settings.service');
+const { REPORT_TYPES } = require('../models/settings.model');
 const { isActiveSale } = require('../models/sale.model');
 const { ApiError } = require('../middleware/errorHandler');
 const { DAY_MS, businessParts, businessDayStart, businessDateKey } = require('../utils/businessTime');
@@ -267,7 +268,9 @@ function buildPdfAttachments(reportPackage, settings) {
   const outletName = (id) => outlets.get(id) || id || 'Unknown outlet';
   const productName = (id) => products.get(id) || id || 'Unknown product';
   const filePrefix = reportFileName(settings.companyName);
-  const attachment = (slug, title, sections) => ({
+  const selectedReports = new Set(settings.reports?.includedReports?.length ? settings.reports.includedReports : REPORT_TYPES);
+  const attachment = (reportType, slug, title, sections) => ({
+    reportType,
     filename: `${filePrefix}-${slug}-${businessDateKey(period.from)}.pdf`,
     content: renderReportPdf(title, period.label, sections).toString('base64'),
   });
@@ -279,7 +282,7 @@ function buildPdfAttachments(reportPackage, settings) {
     ['Merchandising audits', current.audits.length, `Low-stock flags: ${current.audits.reduce((sum, item) => sum + (item.stockChecks || []).filter((check) => check.lowStock).length, 0)}`],
   ];
   return [
-    attachment('summary-report', 'Executive summary', [{
+    attachment('summary', 'summary-report', 'Executive summary', [{
       title: 'Key metrics',
       rows: [
         ['Sales value', ksh(summary.sales.total), changeText(summary.sales.changePercent)],
@@ -296,32 +299,33 @@ function buildPdfAttachments(reportPackage, settings) {
       title: 'Top teams',
       rows: summary.topTeams.map((team, index) => [`${index + 1}. ${team.name}`, `${team.count} sales`, ksh(team.total)]),
     }]),
-    attachment('sales-report', 'Sales report', [{
+    attachment('sales', 'sales-report', 'Sales report', [{
       title: `Transactions (${activeSales.length})`,
       rows: activeSales.length
         ? activeSales.map((sale) => [valueDate(sale.timestamp)?.toISOString().slice(0, 16) || 'Unknown date', repName(sale.repId), outletName(sale.outletId), productName(sale.productId), `Qty ${sale.qty}`, ksh(sale.total)])
         : ['No active sales recorded in this period.'],
     }]),
-    attachment('leads-report', 'Leads report', [{
+    attachment('leads', 'leads-report', 'Leads report', [{
       title: `Lead pipeline (${activeLeads.length})`,
       rows: activeLeads.length
         ? activeLeads.map((lead) => [valueDate(lead.createdAt)?.toISOString().slice(0, 16) || 'Unknown date', lead.name, lead.organization || '', lead.status, lead.score || 'unscored', lead.source || ''])
         : ['No leads recorded in this period.'],
     }]),
-    attachment('referral-applicants-report', 'Referral applicants report', [{
+    attachment('referrals', 'referral-applicants-report', 'Referral applicants report', [{
       title: `Applicants (${activeReferrals.length})`,
       rows: activeReferrals.length
         ? activeReferrals.map((referral) => [valueDate(referral.createdAt)?.toISOString().slice(0, 16) || 'Unknown date', referral.applicantName, referral.phone, referral.email, referral.county, referral.status, referral.source || ''])
         : ['No referral applicants recorded in this period.'],
     }]),
-    attachment('field-activity-report', 'Field activity report', [{
+    attachment('field_activity', 'field-activity-report', 'Field activity report', [{
       title: 'Activity totals',
       rows: fieldRows,
     }, {
       title: `Calls logged (${calls.length})`,
       rows: calls.length ? calls.map((call) => [valueDate(call.startedAt)?.toISOString().slice(0, 16) || 'Unknown date', call.outcome || call.status || 'call', call.telemarketerId || 'Unassigned', call.leadId || '']) : ['No calls recorded in this period.'],
     }]),
-  ];
+  ].filter((attachmentItem) => selectedReports.has(attachmentItem.reportType))
+    .map(({ reportType, ...attachmentItem }) => attachmentItem);
 }
 
 async function buildScheduledReport(period) {
