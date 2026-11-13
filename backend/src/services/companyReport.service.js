@@ -5,23 +5,28 @@ const { isActiveSale } = require('../models/sale.model');
 // Sales timestamps are stored as ISO strings, epoch milliseconds or Firestore
 // timestamps depending on the client version, so all three are queried.
 async function loadSalesInRange(from, to) {
-  const salesByType = await Promise.all([
-    listDocs('sales', { where: [['timestamp', '>=', from.toISOString()], ['timestamp', '<=', to.toISOString()]] }),
-    listDocs('sales', { where: [['timestamp', '>=', from.getTime()], ['timestamp', '<=', to.getTime()]] }),
-    listDocs('sales', { where: [['timestamp', '>=', admin.firestore.Timestamp.fromDate(from)], ['timestamp', '<=', admin.firestore.Timestamp.fromDate(to)]] }),
+  return loadDateRangeDocs('sales', 'timestamp', from, to);
+}
+
+// Older mobile/web clients stored dates as ISO strings or epoch milliseconds,
+// while newer writes use Firestore Timestamps. Query all three encodings so
+// reports agree with the dashboard regardless of when a record was created.
+async function loadDateRangeDocs(collection, field, from, to) {
+  const docsByType = await Promise.all([
+    listDocs(collection, { where: [[field, '>=', from.toISOString()], [field, '<=', to.toISOString()]] }),
+    listDocs(collection, { where: [[field, '>=', from.getTime()], [field, '<=', to.getTime()]] }),
+    listDocs(collection, { where: [[field, '>=', admin.firestore.Timestamp.fromDate(from)], [field, '<=', admin.firestore.Timestamp.fromDate(to)]] }),
   ]);
-  return [...new Map(salesByType.flat().map((sale) => [sale.id, sale])).values()];
+  return [...new Map(docsByType.flat().map((record) => [record.id, record])).values()];
 }
 
 async function loadCompanyReportData(from, to) {
-  const fromTimestamp = admin.firestore.Timestamp.fromDate(from);
-  const toTimestamp = admin.firestore.Timestamp.fromDate(to);
   const [teams, sales, activations, leads, audits] = await Promise.all([
     listDocs('teams'),
     loadSalesInRange(from, to),
-    listDocs('activations', { where: [['startedAt', '>=', fromTimestamp], ['startedAt', '<=', toTimestamp]] }),
-    listDocs('leads', { where: [['createdAt', '>=', fromTimestamp], ['createdAt', '<=', toTimestamp]] }),
-    listDocs('merchandisingAudits', { where: [['observedAt', '>=', fromTimestamp], ['observedAt', '<=', toTimestamp]] }),
+    loadDateRangeDocs('activations', 'startedAt', from, to),
+    loadDateRangeDocs('leads', 'createdAt', from, to),
+    loadDateRangeDocs('merchandisingAudits', 'observedAt', from, to),
   ]);
   return { teams, sales, activations, leads, audits };
 }
