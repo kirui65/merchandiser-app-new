@@ -1,5 +1,6 @@
 const env = require('../config/env');
 const { ApiError } = require('../middleware/errorHandler');
+const { listDocs } = require('./firestore.service');
 const { loadCompanyReportData, buildCompanyReport } = require('./companyReport.service');
 
 const MAX_MESSAGE_LENGTH = 2000;
@@ -34,18 +35,101 @@ ${JSON.stringify(report)}
 The manager's question will be provided as the next user message.`;
 }
 
+function countBy(records, field) {
+  return records.reduce((counts, record) => {
+    const value = record[field] || 'unknown';
+    counts[value] = (counts[value] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function sum(records, field) {
+  return Number(records.reduce((total, record) => total + Number(record[field] || 0), 0).toFixed(2));
+}
+
+async function loadAssistantContext() {
+  const collections = [
+    'referralRegistrations', 'campaigns', 'leads', 'calls', 'sales', 'mpesaTransactions',
+    'activations', 'merchandisingAudits', 'routes', 'outlets', 'products', 'reps',
+    'teams', 'regions', 'territories', 'fieldRequests', 'broadcasts', 'competitorPrices',
+    'outletOnboarding', 'salesTargets',
+  ];
+  const records = await Promise.all(collections.map((collection) => listDocs(collection)));
+  const data = Object.fromEntries(collections.map((collection, index) => [collection, records[index]]));
+  const referrals = data.referralRegistrations;
+  const campaigns = data.campaigns;
+  const leads = data.leads;
+  const calls = data.calls;
+  const sales = data.sales;
+  const transactions = data.mpesaTransactions;
+  const reps = data.reps;
+
+  return {
+    applicants: {
+      total: referrals.length,
+      byStatus: countBy(referrals, 'status'),
+      bySource: countBy(referrals, 'source'),
+      byCampaign: countBy(referrals, 'campaignId'),
+      byCounty: countBy(referrals, 'county'),
+      byEducation: countBy(referrals, 'education'),
+      paidNitaFees: referrals.filter((item) => item.nitaFeeStatus === 'paid').length,
+      withPassports: referrals.filter((item) => item.passportStatus === 'has_passport').length,
+    },
+    campaigns: {
+      total: campaigns.length,
+      active: campaigns.filter((item) => item.status === 'active').length,
+      byStatus: countBy(campaigns, 'status'),
+      byProgramType: countBy(campaigns, 'programType'),
+      names: campaigns.map((item) => ({ id: item.id, name: item.name, status: item.status, programType: item.programType })),
+    },
+    leads: { total: leads.length, byStatus: countBy(leads, 'status'), byScore: countBy(leads, 'score') },
+    calls: { total: calls.length, byOutcome: countBy(calls, 'outcome') },
+    sales: { totalTransactions: sales.length, totalRevenueKsh: sum(sales, 'total'), byProduct: countBy(sales, 'productId') },
+    payments: { total: transactions.length, byStatus: countBy(transactions, 'status'), completedValueKsh: sum(transactions.filter((item) => item.status === 'completed'), 'amount') },
+    fieldActivity: {
+      activations: data.activations.length,
+      merchandisingAudits: data.merchandisingAudits.length,
+      routes: data.routes.length,
+      competitorPriceChecks: data.competitorPrices.length,
+      outletOnboardingRequests: data.outletOnboarding.length,
+    },
+    organization: {
+      outlets: data.outlets.length,
+      activeOutlets: data.outlets.filter((item) => item.active !== false).length,
+      products: data.products.length,
+      reps: reps.length,
+      activeReps: reps.filter((item) => item.active !== false).length,
+      peopleByRole: countBy(reps, 'role'),
+      teams: data.teams.length,
+      regions: data.regions.length,
+      territories: data.territories.length,
+    },
+    operations: {
+      fieldRequests: data.fieldRequests.length,
+      broadcasts: data.broadcasts.length,
+      salesTargets: data.salesTargets.length,
+    },
+  };
+}
+
 async function askAssistant({ message, from, to }) {
   if (!env.coarenaApiKey) throw new ApiError(503, 'The AI assistant is not configured yet');
   if (typeof message !== 'string' || !message.trim()) throw new ApiError(400, 'Enter a question for the assistant');
   if (message.trim().length > MAX_MESSAGE_LENGTH) throw new ApiError(400, `Questions must be ${MAX_MESSAGE_LENGTH} characters or fewer`);
 
   const range = parseDateRange(from, to);
-  const source = await loadCompanyReportData(range.from, range.to);
-  const report = buildCompanyReport({
-    ...source,
-    from: range.from.getTime(),
-    to: range.to.getTime(),
-  });
+  const [source, dashboardContext] = await Promise.all([
+    loadCompanyReportData(range.from, range.to),
+    loadAssistantContext(),
+  ]);
+  const report = {
+    selectedPeriod: buildCompanyReport({
+      ...source,
+      from: range.from.getTime(),
+      to: range.to.getTime(),
+    }),
+    dashboardContext,
+  };
   const response = await fetch('https://coarena.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
