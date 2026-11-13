@@ -1,4 +1,30 @@
+const { admin } = require('../config/firebase');
+const { listDocs } = require('./firestore.service');
 const { isActiveSale } = require('../models/sale.model');
+
+// Sales timestamps are stored as ISO strings, epoch milliseconds or Firestore
+// timestamps depending on the client version, so all three are queried.
+async function loadSalesInRange(from, to) {
+  const salesByType = await Promise.all([
+    listDocs('sales', { where: [['timestamp', '>=', from.toISOString()], ['timestamp', '<=', to.toISOString()]] }),
+    listDocs('sales', { where: [['timestamp', '>=', from.getTime()], ['timestamp', '<=', to.getTime()]] }),
+    listDocs('sales', { where: [['timestamp', '>=', admin.firestore.Timestamp.fromDate(from)], ['timestamp', '<=', admin.firestore.Timestamp.fromDate(to)]] }),
+  ]);
+  return [...new Map(salesByType.flat().map((sale) => [sale.id, sale])).values()];
+}
+
+async function loadCompanyReportData(from, to) {
+  const fromTimestamp = admin.firestore.Timestamp.fromDate(from);
+  const toTimestamp = admin.firestore.Timestamp.fromDate(to);
+  const [teams, sales, activations, leads, audits] = await Promise.all([
+    listDocs('teams'),
+    loadSalesInRange(from, to),
+    listDocs('activations', { where: [['startedAt', '>=', fromTimestamp], ['startedAt', '<=', toTimestamp]] }),
+    listDocs('leads', { where: [['createdAt', '>=', fromTimestamp], ['createdAt', '<=', toTimestamp]] }),
+    listDocs('merchandisingAudits', { where: [['observedAt', '>=', fromTimestamp], ['observedAt', '<=', toTimestamp]] }),
+  ]);
+  return { teams, sales, activations, leads, audits };
+}
 
 function timestampMillis(value) {
   if (value && typeof value.toMillis === 'function') return value.toMillis();
@@ -74,4 +100,4 @@ function buildCompanyReport({ sales, activations, leads, audits, teams, from, to
   };
 }
 
-module.exports = { buildCompanyReport };
+module.exports = { buildCompanyReport, loadSalesInRange, loadCompanyReportData };

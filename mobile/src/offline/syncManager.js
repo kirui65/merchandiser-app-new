@@ -1,17 +1,10 @@
-// Background sync orchestration for the offline sales queue.
+// Sync the offline sales queue in the background.
 //
-// Deliberately written with injectable dependencies (queue + api client)
-// rather than importing SQLite/axios directly, so this module can be
-// unit-tested with mocked network state and a mocked queue BEFORE it is
-// wired into any screen — per the project's build order.
-//
-// Key correctness property: syncing must be safe to retry. If the network
-// drops right after the backend commits a sale but before the response
-// reaches the phone, the next sync attempt re-POSTs the same localId. The
-// backend treats that as a duplicate and returns 200 with the existing
-// record (see backend/src/controllers/sales.controller.js) — NOT an error —
-// so this manager must mark the item 'synced' on both a fresh 201 and a
-// duplicate 200, never leave it stuck retrying.
+// The queue and API client are passed in so this module can be tested without
+// starting SQLite or a React Native runtime. A retry may reach the API after
+// the original request was already saved, so the server treats the same
+// localId as an existing sale. Both a new sale and a duplicate response count
+// as synced here.
 
 /**
  * @typedef {object} QueueAdapter

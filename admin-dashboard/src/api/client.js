@@ -7,6 +7,12 @@ const BASE_URL =
 // still prevents the dashboard from being left in a permanent loading state.
 const client = axios.create({ baseURL: BASE_URL, timeout: 75000 });
 
+// Lets the connection banner know whether the API is reachable.
+export const API_STATUS_EVENT = 'brandsphere:api-status';
+function reportReachable(reachable) {
+  window.dispatchEvent(new CustomEvent(API_STATUS_EVENT, { detail: { reachable } }));
+}
+
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -14,8 +20,13 @@ client.interceptors.request.use((config) => {
 });
 
 client.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    reportReachable(true);
+    return res;
+  },
   (err) => {
+    // No response at all means a network failure or timeout, not an API error.
+    reportReachable(Boolean(err.response) || axios.isCancel(err));
     if (err.response?.status === 401) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('authUser');

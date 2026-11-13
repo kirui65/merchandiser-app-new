@@ -24,3 +24,11 @@ services:
         sync: false
       - key: FIREBASE_STORAGE_BUCKET
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: REPORT_EMAIL_FROM
+        sync: false
+      - key: REPORTS_CRON_SECRET
+        sync: false
+      - key: DASHBOARD_URL
+        value: https://admin-dashboard-three-hazel-22.vercel.app

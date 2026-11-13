@@ -1,7 +1,7 @@
 const { admin } = require('../config/firebase');
 const { createDoc, getDoc, listDocs, updateDoc } = require('../services/firestore.service');
 const { ApiError } = require('../middleware/errorHandler');
-const { buildCompanyReport } = require('../services/companyReport.service');
+const { buildCompanyReport, loadCompanyReportData } = require('../services/companyReport.service');
 
 function timestampMillis(value) {
   if (value && typeof value.toMillis === 'function') return value.toMillis();
@@ -152,8 +152,6 @@ async function getCompanyReport(req, res, next) {
       throw new ApiError(400, 'Provide a valid from/to date range');
     }
 
-    const fromTimestamp = admin.firestore.Timestamp.fromDate(from);
-    const toTimestamp = admin.firestore.Timestamp.fromDate(to);
     const [selectedCampaign, selectedRegion] = await Promise.all([
       req.query.campaignId ? getDoc('campaigns', req.query.campaignId) : null,
       req.query.regionId ? getDoc('regions', req.query.regionId) : null,
@@ -161,18 +159,7 @@ async function getCompanyReport(req, res, next) {
     if (req.query.campaignId && !selectedCampaign) throw new ApiError(404, 'Campaign not found');
     if (req.query.regionId && !selectedRegion) throw new ApiError(404, 'Region not found');
 
-    const [teams, salesByType, activations, leads, audits] = await Promise.all([
-      listDocs('teams'),
-      Promise.all([
-        listDocs('sales', { where: [['timestamp', '>=', from.toISOString()], ['timestamp', '<=', to.toISOString()]] }),
-        listDocs('sales', { where: [['timestamp', '>=', from.getTime()], ['timestamp', '<=', to.getTime()]] }),
-        listDocs('sales', { where: [['timestamp', '>=', fromTimestamp], ['timestamp', '<=', toTimestamp]] }),
-      ]),
-      listDocs('activations', { where: [['startedAt', '>=', fromTimestamp], ['startedAt', '<=', toTimestamp]] }),
-      listDocs('leads', { where: [['createdAt', '>=', fromTimestamp], ['createdAt', '<=', toTimestamp]] }),
-      listDocs('merchandisingAudits', { where: [['observedAt', '>=', fromTimestamp], ['observedAt', '<=', toTimestamp]] }),
-    ]);
-    const sales = [...new Map(salesByType.flat().map((sale) => [sale.id, sale])).values()];
+    const data = await loadCompanyReportData(from, to);
 
     return res.json({
       filters: {
@@ -184,11 +171,7 @@ async function getCompanyReport(req, res, next) {
         regionName: selectedRegion?.name || null,
       },
       ...buildCompanyReport({
-        sales,
-        activations,
-        leads,
-        audits,
-        teams,
+        ...data,
         from: from.getTime(),
         to: to.getTime(),
         campaignId: req.query.campaignId,

@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import client from '../api/client';
 import Button from '../components/Button';
 import Card from '../components/Card';
+import DataTable from '../components/DataTable';
 import EmptyState from '../components/EmptyState';
+import RefreshStatus from '../components/RefreshStatus';
+import { apiErrorMessage, useConfirm, useToast } from '../components/Feedback';
 import { formatDateTime } from '../utils/formatters';
 
 function dateValue(value) {
@@ -24,6 +27,9 @@ export default function BroadcastsPage() {
   const [loading, setLoading] = useState(true);
   const [archivingId, setArchivingId] = useState(null);
   const [error, setError] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,6 +41,7 @@ export default function BroadcastsPage() {
       ]);
       setBroadcasts(broadcastResponse.data.broadcasts || []);
       setTeams(teamResponse.data.teams || []);
+      setUpdatedAt(Date.now());
     } catch (requestError) {
       setError(requestError.response?.data?.error?.message || 'Could not load team broadcasts.');
     } finally {
@@ -57,16 +64,22 @@ export default function BroadcastsPage() {
   );
 
   async function archive(broadcast) {
-    if (!window.confirm(`Archive “${broadcast.title}”?`)) return;
+    const confirmed = await confirm({
+      title: `Archive “${broadcast.title}”?`,
+      message: 'The announcement will no longer show in the team’s feed.',
+      confirmLabel: 'Archive',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     setArchivingId(broadcast.id);
-    setError(null);
     try {
       await client.delete(`/broadcasts/${encodeURIComponent(broadcast.id)}`);
       setBroadcasts((current) =>
         current.map((item) => (item.id === broadcast.id ? { ...item, status: 'archived' } : item)),
       );
+      toast.success('Broadcast archived.');
     } catch (requestError) {
-      setError(requestError.response?.data?.error?.message || 'Could not archive this broadcast.');
+      toast.error(apiErrorMessage(requestError, 'Could not archive this broadcast.'));
     } finally {
       setArchivingId(null);
     }
@@ -125,76 +138,103 @@ export default function BroadcastsPage() {
             </select>
           </div>
         </div>
-        <div style={{ marginTop: 14 }}>
-          <Button variant="secondary" onClick={load} disabled={loading}>
-            {loading ? 'Loading…' : 'Refresh'}
-          </Button>
-        </div>
+        <RefreshStatus updatedAt={updatedAt} onRefresh={load} loading={loading} />
       </Card>
       <Card title={`${visibleBroadcasts.length} broadcasts`}>
-        {loading ? (
-          <p className="muted">Loading announcements…</p>
-        ) : visibleBroadcasts.length ? (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Published</th>
-                  <th>Team</th>
-                  <th>Title and message</th>
-                  <th>Sender</th>
-                  <th>Status</th>
-                  <th>Expires</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleBroadcasts.map((broadcast) => (
-                  <tr key={broadcast.id}>
-                    <td>
-                      {dateValue(broadcast.publishedAt || broadcast.createdAt)
-                        ? formatDateTime(dateValue(broadcast.publishedAt || broadcast.createdAt))
-                        : '—'}
-                    </td>
-                    <td>{teamNames.get(broadcast.teamId) || broadcast.teamId}</td>
-                    <td className="message-cell">
-                      <strong>{broadcast.title}</strong>
-                      <br />
-                      <span className="muted" title={broadcast.message}>
-                        {broadcast.message}
-                      </span>
-                    </td>
-                    <td>{broadcast.senderId}</td>
-                    <td>{broadcast.status}</td>
-                    <td>
-                      {dateValue(broadcast.expiresAt)
-                        ? formatDateTime(dateValue(broadcast.expiresAt))
-                        : '—'}
-                    </td>
-                    <td>
-                      {broadcast.status !== 'archived' ? (
-                        <Button
-                          variant="secondary"
-                          disabled={archivingId === broadcast.id}
-                          onClick={() => archive(broadcast)}
-                        >
-                          {archivingId === broadcast.id ? 'Archiving…' : 'Archive'}
-                        </Button>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : !loading ? (
-          <EmptyState
-            title="No matching broadcasts"
-            message="Team leaders’ announcements will appear here."
-          />
-        ) : null}
+        <DataTable
+          loading={loading && !broadcasts.length}
+          rows={visibleBroadcasts}
+          rowLabel="broadcasts"
+          initialSort={{ key: 'published', direction: 'desc' }}
+          columns={[
+            {
+              key: 'published',
+              header: 'Published',
+              sortValue: (broadcast) => dateValue(broadcast.publishedAt || broadcast.createdAt),
+              render: (broadcast) => {
+                const date = dateValue(broadcast.publishedAt || broadcast.createdAt);
+                return date ? formatDateTime(date) : '—';
+              },
+            },
+            {
+              key: 'team',
+              header: 'Team',
+              sortValue: (broadcast) => teamNames.get(broadcast.teamId) || broadcast.teamId,
+              render: (broadcast) => teamNames.get(broadcast.teamId) || broadcast.teamId,
+            },
+            {
+              key: 'title',
+              header: 'Title and message',
+              className: 'message-cell',
+              sortValue: (broadcast) => broadcast.title,
+              render: (broadcast) => (
+                <>
+                  <strong>{broadcast.title}</strong>
+                  <br />
+                  <span className="muted" title={broadcast.message}>
+                    {broadcast.message}
+                  </span>
+                </>
+              ),
+            },
+            { key: 'senderId', header: 'Sender' },
+            {
+              key: 'status',
+              header: 'Status',
+              sortValue: (broadcast) => broadcast.status,
+              render: (broadcast) => (
+                <span className={`status-pill status-${broadcast.status}`}>{broadcast.status}</span>
+              ),
+            },
+            {
+              key: 'expires',
+              header: 'Expires',
+              sortValue: (broadcast) => dateValue(broadcast.expiresAt),
+              render: (broadcast) =>
+                dateValue(broadcast.expiresAt)
+                  ? formatDateTime(dateValue(broadcast.expiresAt))
+                  : '—',
+            },
+            {
+              key: 'action',
+              header: 'Action',
+              render: (broadcast) =>
+                broadcast.status !== 'archived' ? (
+                  <Button
+                    variant="secondary"
+                    disabled={archivingId === broadcast.id}
+                    onClick={() => archive(broadcast)}
+                  >
+                    {archivingId === broadcast.id ? 'Archiving…' : 'Archive'}
+                  </Button>
+                ) : (
+                  '—'
+                ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              title={broadcasts.length ? 'No matching broadcasts' : 'No broadcasts yet'}
+              message={
+                broadcasts.length
+                  ? 'Try a different search, status or team.'
+                  : 'Team leaders’ announcements will appear here.'
+              }
+              action={
+                broadcasts.length && (query || status || teamId)
+                  ? {
+                      label: 'Clear filters',
+                      onClick: () => {
+                        setQuery('');
+                        setStatus('');
+                        setTeamId('');
+                      },
+                    }
+                  : undefined
+              }
+            />
+          }
+        />
       </Card>
     </>
   );

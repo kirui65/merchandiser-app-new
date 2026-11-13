@@ -7,6 +7,7 @@ const { admin } = require('../config/firebase');
 const { z } = require('zod');
 const { ApiError } = require('../middleware/errorHandler');
 const { recordAudit } = require('../services/audit.service');
+const { loadOutletOverview } = require('../services/recordOverview.service');
 
 const router = express.Router();
 
@@ -27,6 +28,16 @@ router.get('/', async (req, res, next) => {
     if (req.query.territoryId) where.push(['territoryId', '==', req.query.territoryId]);
     const outlets = await listDocs('outlets', { where });
     return res.json({ outlets });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.get('/:id/overview', requireManager, async (req, res, next) => {
+  try {
+    const overview = await loadOutletOverview(req.params.id);
+    if (!overview) throw new ApiError(404, 'Outlet not found');
+    return res.json(overview);
   } catch (err) {
     return next(err);
   }

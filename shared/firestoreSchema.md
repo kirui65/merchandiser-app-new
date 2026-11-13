@@ -469,11 +469,10 @@ a client.
 
 ## Access control
 
-All writes go through the Express API using the Firebase **Admin SDK**,
-which bypasses `firestore/firestore.rules`. The rules file is a
-defense-in-depth backstop only. Real authorization lives in
-`backend/src/middleware/auth.middleware.js` and must be enforced in every
-controller:
+All writes go through the Express API using the Firebase **Admin SDK**, which
+bypasses `firestore/firestore.rules`. The rules file is still useful as an
+additional safeguard, but request authorization is handled by
+`backend/src/middleware/auth.middleware.js` and the controllers:
 - A rep may only read/write `sales` and `routes` docs where `repId` matches
   their own JWT-authenticated `uid`.
 - A manager (`role === 'manager'`) may read everything.

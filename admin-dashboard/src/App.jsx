@@ -28,11 +28,16 @@ const CompanyReportPage = lazy(() => import('./pages/CompanyReportPage.jsx'));
 const BroadcastsPage = lazy(() => import('./pages/BroadcastsPage.jsx'));
 const FieldRequestsPage = lazy(() => import('./pages/FieldRequestsPage.jsx'));
 import PasswordChangeDialog from './components/PasswordChangeDialog.jsx';
+import ConnectionBanner from './components/ConnectionBanner.jsx';
+import NotificationBell from './components/NotificationBell.jsx';
+import { FeedbackProvider } from './components/Feedback.jsx';
+import useTheme from './theme/useTheme';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 const ReferralRegistrationsPage = lazy(() => import('./pages/ReferralRegistrationsPage.jsx'));
 const RecruitersPage = lazy(() => import('./pages/RecruitersPage.jsx'));
 const PublicApplicationPage = lazy(() => import('./pages/PublicApplicationPage.jsx'));
 const RecruiterPortal = lazy(() => import('./pages/RecruiterPortal.jsx'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -62,6 +67,7 @@ function Shell({ children }) {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
   const [mobileQuery, setMobileQuery] = useState('');
+  const { theme, toggle: toggleTheme } = useTheme();
   const closeMenu = () => setMenuOpen(false);
   const navGroups = [
     [
@@ -112,7 +118,13 @@ function Shell({ children }) {
         ['/field-requests', 'Field requests'],
       ],
     ],
-    ['Admin', [['/audit-log', 'Audit log']]],
+    [
+      'Admin',
+      [
+        ['/audit-log', 'Audit log'],
+        ['/settings', 'Settings'],
+      ],
+    ],
   ];
   const navItems = navGroups.flatMap(([, links]) => links);
   useEffect(() => {
@@ -153,6 +165,13 @@ function Shell({ children }) {
       </div>
     </details>
   ));
+  const [currentGroup, currentPage] = (() => {
+    for (const [group, links] of navGroups) {
+      const match = links.find(([to]) => to === location.pathname);
+      if (match) return [group, match[1]];
+    }
+    return [null, null];
+  })();
   const mobileItems = navItems.filter(([, label]) =>
     label.toLowerCase().includes(mobileQuery.toLowerCase()),
   );
@@ -240,19 +259,35 @@ function Shell({ children }) {
       </nav>
       <main className="workspace">
         <div className="workspace-top">
-          <span>
-            <i />
-            Live workspace
-          </span>
-          <div>
+          <nav className="breadcrumbs" aria-label="Breadcrumb">
+            {currentGroup && currentGroup !== currentPage ? (
+              <>
+                <span>{currentGroup}</span>
+                <span aria-hidden="true">›</span>
+              </>
+            ) : null}
+            <strong aria-current="page">{currentPage || 'Workspace'}</strong>
+          </nav>
+          <div className="workspace-actions">
             <button className="command-trigger" onClick={() => setCommandOpen(true)}>
               Search pages <kbd>⌘ K</kbd>
+            </button>
+            <NotificationBell />
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            >
+              <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
             </button>
             <button className="workspace-account" onClick={() => setChangingPassword(true)}>
               Account
             </button>
           </div>
         </div>
+        <ConnectionBanner />
         <div className="shell-content">
           <Suspense
             fallback={
@@ -307,6 +342,7 @@ function Shell({ children }) {
 export default function App() {
   return (
     <AuthProvider>
+      <FeedbackProvider>
       <BrowserRouter>
         <ErrorBoundary>
           <Suspense
@@ -519,11 +555,22 @@ export default function App() {
                   </RequireAuth>
                 }
               />
+<Route
+                path="/settings"
+                element={
+                  <RequireAuth>
+                    <Shell>
+                      <SettingsPage />
+                    </Shell>
+                  </RequireAuth>
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
         </ErrorBoundary>
       </BrowserRouter>
+      </FeedbackProvider>
     </AuthProvider>
   );
 }

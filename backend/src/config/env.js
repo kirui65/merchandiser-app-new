@@ -41,5 +41,11 @@ module.exports = {
   geofenceRadiusMeters: Number(process.env.GEOFENCE_RADIUS_METERS || 100),
   outletOverdueDays: Number(process.env.OUTLET_OVERDUE_DAYS || 7),
 
+  // Scheduled report emails (Resend) and the secret the scheduler sends.
+  resendApiKey: process.env.RESEND_API_KEY,
+  reportEmailFrom: process.env.REPORT_EMAIL_FROM,
+  reportsCronSecret: process.env.REPORTS_CRON_SECRET,
+  dashboardUrl: process.env.DASHBOARD_URL,
+
   allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',').map((s) => s.trim()),
 };

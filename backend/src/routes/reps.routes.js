@@ -8,6 +8,7 @@ const { getFirestore, admin } = require('../config/firebase');
 const { ApiError } = require('../middleware/errorHandler');
 const { recordAudit } = require('../services/audit.service');
 const { assertCanDeleteAccount } = require('../services/accountAdministration.service');
+const { loadRepOverview } = require('../services/recordOverview.service');
 
 const router = express.Router();
 
@@ -156,6 +157,16 @@ router.delete('/:id', requireManager, async (req, res, next) => {
     await recordAudit(req, { action: 'deleted', entityType: 'rep', entity: target, changedFields: ['account'] });
     return res.status(204).send();
   } catch (err) { return next(err); }
+});
+
+router.get('/:id/overview', requireManager, async (req, res, next) => {
+  try {
+    const overview = await loadRepOverview(req.params.id);
+    if (!overview) throw new ApiError(404, 'Rep not found');
+    return res.json(overview);
+  } catch (err) {
+    return next(err);
+  }
 });
 
 // A rep can fetch their own profile; managers can fetch any.

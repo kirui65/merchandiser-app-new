@@ -8,11 +8,8 @@ function authenticatedUserFromAccount(uid, account) {
   return { uid, role: account.role };
 }
 
-/**
- * Verifies the JWT and attaches { uid, role } to req.user.
- * This is the REAL authorization boundary for the app (see shared/firestoreSchema.md
- * — firestore.rules is a backstop only, since all writes use the Admin SDK).
- */
+// Verify the token and attach the current account to the request. The API
+// checks permissions here because its Firestore calls use the Admin SDK.
 async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const [scheme, token] = header.split(' ');

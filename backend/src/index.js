@@ -29,6 +29,8 @@ const reportsRoutes = require('./routes/reports.routes');
 const referralRegistrationsRoutes = require('./routes/referralRegistrations.routes');
 const adminRoutes = require('./routes/admin.routes');
 const publicReferralsRoutes = require('./routes/publicReferrals.routes');
+const settingsRoutes = require('./routes/settings.routes');
+const notificationsRoutes = require('./routes/notifications.routes');
 
 const app = express();
 
@@ -74,6 +76,8 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/referrals', referralRegistrationsRoutes);
 app.use('/api/public', publicReferralsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
