@@ -189,9 +189,106 @@ function wrapPdfText(value, width = 94) {
   return lines.length ? lines : [''];
 }
 
-// Small dependency-free PDF writer. Reports are intentionally text-first so
-// they remain readable and dependable on email clients and mobile devices.
 function renderReportPdf(title, periodLabel, sections) {
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const margin = 42;
+  const contentWidth = pageWidth - margin * 2;
+  const navy = [0.09, 0.23, 0.33];
+  const green = [0.45, 0.59, 0.23];
+  const paleGreen = [0.94, 0.97, 0.87];
+  const paleBlue = [0.94, 0.96, 0.97];
+  const ink = [0.10, 0.17, 0.22];
+  const muted = [0.36, 0.43, 0.47];
+  const white = [1, 1, 1];
+  const color = (rgb, fill = true) => rgb.join(' ') + (fill ? ' rg\n' : ' RG\n');
+  const rect = (x, y, width, height, rgb) => color(rgb) + x + ' ' + y + ' ' + width + ' ' + height + ' re f\n';
+  const text = (x, y, size, value, rgb = ink) => color(rgb) + 'BT\n/F1 ' + size + ' Tf\n' + x + ' ' + y + ' Td\n(' + pdfEscape(value) + ') Tj\nET\n';
+  const widthsFor = (count) => {
+    if (count <= 1) return [contentWidth];
+    if (count === 2) return [180, contentWidth - 180];
+    if (count === 3) return [145, 170, contentWidth - 315];
+    if (count === 4) return [82, 178, 105, contentWidth - 365];
+    if (count === 5) return [70, 135, 100, 90, contentWidth - 395];
+    if (count === 6) return [72, 112, 92, 82, 72, contentWidth - 430];
+    return Array.from({ length: count }, () => contentWidth / count);
+  };
+  const pageCommands = [];
+  let commands = '';
+  let y = 0;
+  function startPage() {
+    commands = rect(0, 0, pageWidth, pageHeight, white);
+    commands += rect(0, pageHeight - 112, pageWidth, 112, navy);
+    commands += rect(0, pageHeight - 116, pageWidth, 4, green);
+    commands += text(margin, pageHeight - 43, 9, 'BRANDSPHERE  /  MANAGEMENT REPORT', [0.78, 0.88, 0.88]);
+    commands += text(margin, pageHeight - 72, 20, title, white);
+    commands += text(margin, pageHeight - 94, 9, 'Period: ' + periodLabel, [0.78, 0.88, 0.88]);
+    y = pageHeight - 145;
+  }
+  function finishPage() {
+    commands += text(margin, 24, 8, 'Generated ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC', muted);
+    pageCommands.push(commands);
+  }
+  function ensureSpace(height) {
+    if (y - height < 46) {
+      finishPage();
+      startPage();
+    }
+  }
+  function drawSection(section) {
+    ensureSpace(32);
+    commands += rect(margin, y - 21, contentWidth, 21, paleGreen);
+    commands += rect(margin, y - 21, 4, 21, green);
+    commands += text(margin + 13, y - 14, 10, String(section.title).toUpperCase(), navy);
+    y -= 32;
+    for (let rowIndex = 0; rowIndex < section.rows.length; rowIndex += 1) {
+      const rawCells = Array.isArray(section.rows[rowIndex]) ? section.rows[rowIndex] : [section.rows[rowIndex]];
+      const widths = widthsFor(rawCells.length);
+      const cellLines = rawCells.map((cell, index) => wrapPdfText(cell, Math.max(10, Math.floor(widths[index] / 5.2))));
+      const lineCount = Math.max(...cellLines.map((lines) => lines.length));
+      const rowHeight = Math.max(25, lineCount * 12 + 10);
+      ensureSpace(rowHeight);
+      commands += rect(margin, y - rowHeight + 4, contentWidth, rowHeight, rowIndex % 2 ? paleBlue : white);
+      let x = margin + 8;
+      cellLines.forEach((lines, cellIndex) => {
+        lines.forEach((line, lineIndex) => {
+          commands += text(x, y - 12 - lineIndex * 12, 8.5, line, cellIndex === 0 ? ink : muted);
+        });
+        x += widths[cellIndex];
+      });
+      y -= rowHeight;
+    }
+    y -= 13;
+  }
+  startPage();
+  sections.forEach(drawSection);
+  finishPage();
+  const objects = [];
+  const addObject = (body) => { objects.push(body); return objects.length; };
+  const fontId = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  const pageIds = [];
+  pageCommands.forEach((pageContent) => {
+    const contentId = addObject('<< /Length ' + Buffer.byteLength(pageContent, 'latin1') + ' >>\nstream\n' + pageContent + '\nendstream');
+    pageIds.push(addObject('<< /Type /Page /Parent PAGES_ID 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ' + fontId + ' 0 R >> >> /Contents ' + contentId + ' 0 R >>'));
+  });
+  const pagesId = addObject('<< /Type /Pages /Kids [' + pageIds.map((id) => id + ' 0 R').join(' ') + '] /Count ' + pageIds.length + ' >>');
+  const catalogId = addObject('<< /Type /Catalog /Pages ' + pagesId + ' 0 R >>');
+  const pdfObjects = objects.map((object) => object.replaceAll('PAGES_ID', String(pagesId)));
+  let output = '%PDF-1.4\n';
+  const offsets = [0];
+  pdfObjects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(output, 'latin1'));
+    output += (index + 1) + ' 0 obj\n' + object + '\nendobj\n';
+  });
+  const xref = Buffer.byteLength(output, 'latin1');
+  output += 'xref\n0 ' + (pdfObjects.length + 1) + '\n0000000000 65535 f \n';
+  for (let index = 1; index < offsets.length; index += 1) output += String(offsets[index]).padStart(10, '0') + ' 00000 n \n';
+  output += 'trailer\n<< /Size ' + (pdfObjects.length + 1) + ' /Root ' + catalogId + ' 0 R >>\nstartxref\n' + xref + '\n%%EOF';
+  return Buffer.from(output, 'latin1');
+}
+
+// Legacy text renderer retained for compatibility with older callers.
+function renderLegacyReportPdf(title, periodLabel, sections) {
   const lines = [
     'BRANDSPHERE MANAGEMENT REPORT',
     title,
