@@ -28,6 +28,29 @@ function reportPeriod(frequency, now = new Date()) {
   };
 }
 
+function customReportPeriod(fromDate, toDate) {
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  if (!datePattern.test(fromDate) || !datePattern.test(toDate)) {
+    throw new ApiError(400, 'Report dates must use YYYY-MM-DD format');
+  }
+  const fromParts = fromDate.split('-').map(Number);
+  const toParts = toDate.split('-').map(Number);
+  const from = businessDayStart(fromParts[0], fromParts[1] - 1, fromParts[2]);
+  const to = new Date(businessDayStart(toParts[0], toParts[1] - 1, toParts[2]).getTime() + DAY_MS);
+  if (businessDateKey(from) !== fromDate || businessDateKey(new Date(to.getTime() - DAY_MS)) !== toDate || from >= to) {
+    throw new ApiError(400, 'Choose a valid report date range');
+  }
+  const days = Math.round((to.getTime() - from.getTime()) / DAY_MS);
+  return {
+    frequency: 'custom',
+    from,
+    to,
+    previousFrom: new Date(from.getTime() - days * DAY_MS),
+    key: `custom:${fromDate}:${toDate}`,
+    label: fromDate === toDate ? fromDate : `${fromDate} to ${toDate}`,
+  };
+}
+
 function shouldSendScheduledReport(reportSettings, now = new Date(), lastPeriodKey = null) {
   if (!reportSettings?.enabled) return { send: false, reason: 'Scheduled reports are turned off' };
   if (!reportSettings.recipients?.length) return { send: false, reason: 'No report recipients are configured' };
@@ -103,7 +126,7 @@ function renderReportHtml(summary, { companyName, dashboardUrl } = {}) {
     : '<p style="font-size:14px;color:#5d6b7e;">No sales in this period.</p>'}`;
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#eef2f5;font-family:Arial,Helvetica,sans-serif;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:12px;"><tr><td style="padding:28px;">
-<div style="font-size:12px;letter-spacing:.08em;color:#4d8b75;font-weight:700;">${escapeHtml((companyName || 'Brandsphere').toUpperCase())} · ${summary.period.frequency === 'daily' ? 'DAILY' : 'WEEKLY'} REPORT</div>
+<div style="font-size:12px;letter-spacing:.08em;color:#4d8b75;font-weight:700;">${escapeHtml((companyName || 'Brandsphere').toUpperCase())} · ${summary.period.frequency === 'daily' ? 'DAILY' : summary.period.frequency === 'weekly' ? 'WEEKLY' : 'CUSTOM'} REPORT</div>
 <h1 style="font-size:22px;color:#172b3a;margin:6px 0 20px;">Sales summary for ${escapeHtml(summary.period.label)}</h1>
 <table role="presentation" width="100%" cellspacing="6" cellpadding="0"><tr>
 ${stat('Sales value', ksh(summary.sales.total), changeText(summary.sales.changePercent))}
@@ -377,16 +400,20 @@ async function runScheduledReport(now = new Date()) {
   return { sent: true, period: decision.period.key, to: settings.reports.recipients };
 }
 
-async function sendTestReport(to) {
+async function sendTestReport(to, range = null) {
   const settings = await getSettings();
   const recipients = to ? [to] : settings.reports.recipients;
   if (!recipients.length) throw new ApiError(400, 'Add at least one report recipient first');
-  await sendReport({ recipients, period: reportPeriod(settings.reports.frequency), settings });
+  const period = range?.from && range?.to
+    ? customReportPeriod(range.from, range.to)
+    : reportPeriod(settings.reports.frequency);
+  await sendReport({ recipients, period, settings });
   return { sent: true, to: recipients };
 }
 
 module.exports = {
   reportPeriod,
+  customReportPeriod,
   shouldSendScheduledReport,
   secretMatches,
   percentChange,

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { SettingsSchema, SettingsUpdateSchema, withDefaults } = require('../src/models/settings.model');
-const { reportPeriod, shouldSendScheduledReport, secretMatches, percentChange, renderReportHtml, renderReportCsv, renderReportPdf } = require('../src/services/reportEmail.service');
+const { reportPeriod, customReportPeriod, shouldSendScheduledReport, secretMatches, percentChange, renderReportHtml, renderReportCsv, renderReportPdf } = require('../src/services/reportEmail.service');
 const { filterAuditEntries } = require('../src/services/audit.service');
 const { monthElapsedFraction, repsBehindTarget, buildNotificationItems } = require('../src/services/notifications.service');
 const { monthToDate } = require('../src/services/recordOverview.service');
@@ -35,6 +35,13 @@ test('report periods end at the start of the Nairobi business day', () => {
   assert.equal(weekly.from.toISOString(), '2026-11-08T21:00:00.000Z');
   assert.equal(weekly.previousFrom.toISOString(), '2026-11-01T21:00:00.000Z');
   assert.equal(weekly.label, '2026-11-09 to 2026-11-15');
+});
+
+test('custom report periods use inclusive Nairobi business dates', () => {
+  const period = customReportPeriod('2026-11-01', '2026-11-07');
+  assert.equal(period.from.toISOString(), '2026-10-31T21:00:00.000Z');
+  assert.equal(period.to.toISOString(), '2026-11-07T21:00:00.000Z');
+  assert.equal(period.label, '2026-11-01 to 2026-11-07');
 });
 
 test('scheduled reports send only when enabled, due, and not already sent', () => {

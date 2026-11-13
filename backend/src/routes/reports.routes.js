@@ -28,8 +28,15 @@ router.post('/scheduled/send-test', async (req, res, next) => {
   try {
     const to = req.body?.to ? z.string().trim().email().safeParse(req.body.to) : null;
     if (to && !to.success) throw new ApiError(400, 'Enter a valid email address');
-    const result = await sendTestReport(to?.data);
-    await recordAudit(req, { action: 'report_sent', entityType: 'settings', entity: { id: 'reports', name: 'Scheduled report' }, changedFields: ['test_email'] });
+    const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+    const from = req.body?.from ? dateSchema.safeParse(req.body.from) : null;
+    const toDate = req.body?.toDate ? dateSchema.safeParse(req.body.toDate) : null;
+    if (from && !from.success) throw new ApiError(400, 'Enter a valid From date');
+    if (toDate && !toDate.success) throw new ApiError(400, 'Enter a valid To date');
+    if (Boolean(from) !== Boolean(toDate)) throw new ApiError(400, 'Choose both a From and To date');
+    const range = from && toDate ? { from: from.data, to: toDate.data } : null;
+    const result = await sendTestReport(to?.data, range);
+    await recordAudit(req, { action: 'report_sent', entityType: 'settings', entity: { id: 'reports', name: 'Scheduled report' }, changedFields: ['test_email', ...(range ? ['report_from', 'report_to'] : [])] });
     return res.json(result);
   } catch (err) {
     return next(err);

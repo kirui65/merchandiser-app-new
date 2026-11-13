@@ -13,11 +13,19 @@ function parseRecipients(text) {
     .filter(Boolean);
 }
 
+function localDateInput(offsetDays = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
+
 export default function SettingsPage() {
   const toast = useToast();
   const [form, setForm] = useState(null);
   const [recipientsText, setRecipientsText] = useState('');
   const [testRecipient, setTestRecipient] = useState('');
+  const [reportFrom, setReportFrom] = useState(() => localDateInput(-7));
+  const [reportTo, setReportTo] = useState(() => localDateInput(-1));
   const [loadError, setLoadError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
@@ -71,11 +79,19 @@ export default function SettingsPage() {
   }
 
   async function sendTest() {
+    if (!reportFrom || !reportTo || reportFrom > reportTo) {
+      toast.error('Choose a valid From and To date.');
+      return;
+    }
     setSending(true);
     try {
       const response = await client.post(
         '/reports/scheduled/send-test',
-        testRecipient.trim() ? { to: testRecipient.trim() } : {},
+        {
+          ...(testRecipient.trim() ? { to: testRecipient.trim() } : {}),
+          from: reportFrom,
+          toDate: reportTo,
+        },
       );
       toast.success(`Report sent to ${response.data.to.join(', ')}.`);
     } catch (error) {
@@ -223,6 +239,33 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="settings-test">
+              <p className="muted settings-test-help">
+                Choose the business-date range for the report you send now. Scheduled emails still
+                use the frequency above.
+              </p>
+              <div className="grid-2">
+                <div className="field">
+                  <label htmlFor="settings-report-from">From date</label>
+                  <input
+                    id="settings-report-from"
+                    type="date"
+                    value={reportFrom}
+                    max={reportTo}
+                    onChange={(event) => setReportFrom(event.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="settings-report-to">To date</label>
+                  <input
+                    id="settings-report-to"
+                    type="date"
+                    value={reportTo}
+                    min={reportFrom}
+                    max={localDateInput(-1)}
+                    onChange={(event) => setReportTo(event.target.value)}
+                  />
+                </div>
+              </div>
               <div className="field">
                 <label htmlFor="settings-test-to">Send a test report now</label>
                 <input
