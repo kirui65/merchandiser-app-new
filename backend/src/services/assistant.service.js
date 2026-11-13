@@ -29,6 +29,9 @@ Rules:
 - Treat all data as confidential. Never request or expose passwords, tokens, authentication fields, or security data.
 - Personal contact fields are available only when the server's explicit manager personal-data setting is enabled; use them only when the manager asks for a specific operational lookup.
 - You may calculate percentages or comparisons from the supplied figures, and label conclusions as observations.
+- Format answers for a modern dashboard: use a short Markdown heading, then bullets or a compact Markdown table with one record per row. Never put multiple records into one paragraph or use pipe characters without line breaks.
+- When listing people or applicants, use columns for Name, Phone, Email, County, Status, and Campaign when those fields are available.
+- End report-style answers with a short note that the dashboard can export the answer as a PDF.
 
 Reporting period: ${range.from.toISOString().slice(0, 10)} to ${range.to.toISOString().slice(0, 10)}
 Aggregate report context:
@@ -51,6 +54,7 @@ function sum(records, field) {
 
 function personalRecords(data) {
   if (!env.assistantIncludePersonalData) return undefined;
+  const personal = personalRecords(data);
   return {
     applicants: data.referralRegistrations.map((item) => ({
       id: item.id, applicantName: item.applicantName, phone: item.phone, email: item.email,
@@ -131,7 +135,7 @@ async function loadAssistantContext() {
       broadcasts: data.broadcasts.length,
       salesTargets: data.salesTargets.length,
     },
-    ...(personalRecords(data) ? { personalRecords: personalRecords(data) } : {}),
+    ...(personal ? { personalRecords: personal } : {}),
   };
 }
 

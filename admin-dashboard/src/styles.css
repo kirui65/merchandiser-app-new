@@ -3110,6 +3110,13 @@ tbody tr:hover {
 .assistant-markdown ul { margin: 5px 0 10px; padding-left: 20px; }
 .assistant-markdown li { margin: 4px 0; }
 .assistant-markdown code { padding: 2px 5px; border-radius: 4px; background: rgba(23,58,85,.1); font-size: .92em; }
+.assistant-table-wrap { max-width: 100%; margin: 10px 0; overflow-x: auto; border: 1px solid var(--brand-line, #dfe7e7); border-radius: 9px; }
+.assistant-markdown table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 11px; text-align: left; }
+.assistant-markdown th, .assistant-markdown td { padding: 8px 10px; border-bottom: 1px solid var(--brand-line, #dfe7e7); vertical-align: top; }
+.assistant-markdown th { color: var(--brand-navy, #173a55); background: var(--brand-soft, #eaf2f5); font-weight: 800; white-space: nowrap; }
+.assistant-markdown tr:last-child td { border-bottom: 0; }
+.assistant-export { margin-top: 9px; padding: 5px 8px; border: 1px solid var(--brand-line, #dfe7e7); border-radius: 6px; color: var(--brand-muted, #687a80); background: transparent; font-size: 10px; cursor: pointer; }
+.assistant-export:hover { color: var(--brand-navy, #173a55); border-color: var(--brand-lime, #c7e45b); background: var(--brand-accent-soft, #f1f7de); }
 .assistant-message-user p { margin-top: 3px; }
 .assistant-thinking { display: flex; align-items: center; gap: 4px; color: var(--brand-muted, #687a80); }
 .assistant-thinking i { width: 5px; height: 5px; border-radius: 50%; background: var(--brand-green, #709d38); animation: assistant-pulse 1.2s infinite ease-in-out; }

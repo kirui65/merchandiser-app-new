@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import client from '../api/client';
 import Button from '../components/Button';
+import { exportPdf } from '../utils/export';
 
 const starters = [
   'Summarise sales performance for this period.',
   'What should I pay attention to in leads and conversions?',
-  'Compare the strongest and weakest team activity.',
+  'Prepare a PDF-ready applicant report with names, contacts, county, and status.',
 ];
 
 function renderInlineMarkdown(text) {
@@ -23,6 +24,7 @@ function MarkdownMessage({ text }) {
   const blocks = [];
   let paragraph = [];
   let list = [];
+  let table = [];
 
   const flushParagraph = () => {
     if (paragraph.length) {
@@ -36,14 +38,40 @@ function MarkdownMessage({ text }) {
       list = [];
     }
   };
+  const flushTable = () => {
+    if (table.length < 2) {
+      table.forEach((row) => paragraph.push(row.join(' · ')));
+      table = [];
+      return;
+    }
+    const [head, ...body] = table;
+    blocks.push(
+      <div className="assistant-table-wrap" key={`table-${blocks.length}`}>
+        <table><thead><tr>{head.map((cell, index) => <th key={index}>{renderInlineMarkdown(cell)}</th>)}</tr></thead>
+          <tbody>{body.map((row, rowIndex) => <tr key={rowIndex}>{head.map((_, cellIndex) => <td key={cellIndex}>{renderInlineMarkdown(row[cellIndex] || '')}</td>)}</tr>)}</tbody>
+        </table>
+      </div>,
+    );
+    table = [];
+  };
+  const parseTableRow = (line) => line.replace(/^\|\s?/, '').replace(/\s?\|$/, '').split('|').map((cell) => cell.trim());
+  const isTableSeparator = (line) => /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line);
 
   lines.forEach((line) => {
     const trimmed = line.trim();
     if (!trimmed) {
       flushParagraph();
       flushList();
+      flushTable();
       return;
     }
+    if (trimmed.includes('|') && trimmed.split('|').length >= 3) {
+      flushParagraph();
+      flushList();
+      if (!isTableSeparator(trimmed)) table.push(parseTableRow(trimmed));
+      return;
+    }
+    flushTable();
     const heading = trimmed.match(/^#{1,3}\s+(.+)$/);
     const bullet = trimmed.match(/^[-*]\s+(.+)$/);
     if (heading) {
@@ -60,6 +88,7 @@ function MarkdownMessage({ text }) {
   });
   flushParagraph();
   flushList();
+  flushTable();
   return <div className="assistant-markdown">{blocks}</div>;
 }
 
@@ -110,6 +139,13 @@ export default function AssistantPage() {
     setConversationId(null);
     setError('');
     setInput('');
+  }
+
+  function exportResponse(message, index) {
+    exportPdf('Brandsphere AI response', ['Response'], [[message.text]], {
+      filename: `brandsphere-ai-response-${index + 1}.pdf`,
+      subtitle: 'Confidential management assistant response',
+    });
   }
 
   async function openConversation(id) {
@@ -171,6 +207,7 @@ export default function AssistantPage() {
               <div className="assistant-message-content">
                 <strong>{message.role === 'user' ? 'You' : 'Brandsphere AI'}</strong>
                 <MarkdownMessage text={message.text} />
+                {message.role === 'assistant' && <button type="button" className="assistant-export" onClick={() => exportResponse(message, index)}>⇩ Export PDF</button>}
               </div>
             </div>
           ))}
