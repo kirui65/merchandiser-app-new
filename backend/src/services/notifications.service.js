@@ -1,4 +1,4 @@
-const { listDocs } = require('./firestore.service');
+const { getDoc, listDocs, setDoc } = require('./firestore.service');
 const { loadSalesInRange } = require('./companyReport.service');
 const { reconcileRecords } = require('./reconciliation.service');
 const { isActiveSale } = require('../models/sale.model');
@@ -64,7 +64,7 @@ async function safely(label, load, fallback) {
   }
 }
 
-async function loadNotifications(now = new Date()) {
+async function loadNotificationItems(now = new Date()) {
   const { year, month } = businessParts(now);
   const monthStart = businessDayStart(year, month, 1);
   const paymentsFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -91,10 +91,34 @@ async function loadNotifications(now = new Date()) {
     }, []),
   ]);
 
+  return buildNotificationItems({ pendingFieldRequests, submittedActivations, newApplicants, unmatchedPayments, behindTarget });
+}
+
+async function loadNotifications(userId, now = new Date()) {
+  const [items, state] = await Promise.all([
+    loadNotificationItems(now),
+    getDoc('notificationStates', userId),
+  ]);
+  const reads = state?.reads || {};
   return {
     generatedAt: now.toISOString(),
-    items: buildNotificationItems({ pendingFieldRequests, submittedActivations, newApplicants, unmatchedPayments, behindTarget }),
+    items: items.map((item) => ({
+      ...item,
+      read: Number(reads[item.id]) >= Number(item.count),
+    })),
   };
 }
 
-module.exports = { monthElapsedFraction, repsBehindTarget, buildNotificationItems, loadNotifications };
+async function markNotificationsRead(userId, ids, now = new Date()) {
+  const items = await loadNotificationItems(now);
+  const allowedIds = new Set(ids);
+  const current = await getDoc('notificationStates', userId);
+  const reads = { ...(current?.reads || {}) };
+  items.filter((item) => allowedIds.has(item.id)).forEach((item) => {
+    reads[item.id] = item.count;
+  });
+  await setDoc('notificationStates', userId, { reads, updatedAt: now.toISOString() });
+  return loadNotifications(userId, now);
+}
+
+module.exports = { monthElapsedFraction, repsBehindTarget, buildNotificationItems, loadNotifications, markNotificationsRead };

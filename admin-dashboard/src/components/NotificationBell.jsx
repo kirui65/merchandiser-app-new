@@ -21,6 +21,16 @@ export default function NotificationBell() {
     }
   }, []);
 
+  const markRead = useCallback(async (ids) => {
+    setItems((current) => current.map((item) => (ids.includes(item.id) ? { ...item, read: true } : item)));
+    try {
+      const response = await client.post('/notifications/read', { ids });
+      setItems(response.data.items || []);
+    } catch {
+      load();
+    }
+  }, [load]);
+
   useEffect(() => {
     load();
     const timer = window.setInterval(load, REFRESH_MS);
@@ -43,7 +53,8 @@ export default function NotificationBell() {
     };
   }, [open]);
 
-  const total = items.reduce((sum, item) => sum + item.count, 0);
+  const unreadItems = items.filter((item) => !item.read);
+  const total = unreadItems.reduce((sum, item) => sum + item.count, 0);
 
   return (
     <div className="notification-bell" ref={containerRef}>
@@ -69,9 +80,18 @@ export default function NotificationBell() {
         <div className="notification-panel" role="dialog" aria-label="Alerts">
           <header>
             <strong>Needs attention</strong>
-            <button type="button" className="data-table-link" onClick={load}>
-              Refresh
-            </button>
+            <span className="notification-header-actions">
+              <button type="button" className="data-table-link" onClick={load}>Refresh</button>
+              {unreadItems.length ? (
+                <button
+                  type="button"
+                  className="data-table-link"
+                  onClick={() => markRead(unreadItems.map((item) => item.id))}
+                >
+                  Mark all read
+                </button>
+              ) : null}
+            </span>
           </header>
           {failed ? (
             <p className="notification-empty">Alerts could not be loaded.</p>
@@ -79,17 +99,33 @@ export default function NotificationBell() {
             <ul>
               {items.map((item) => (
                 <li key={item.id}>
-                  <Link
-                    to={item.href}
-                    className={`notification-item is-${item.severity}`}
-                    onClick={() => setOpen(false)}
-                  >
-                    <span className="notification-dot" aria-hidden="true" />
-                    <span>
-                      <strong>{item.title}</strong>
-                      {item.detail ? <small>{item.detail}</small> : null}
-                    </span>
-                  </Link>
+                  <div className={`notification-entry ${item.read ? 'is-read' : ''}`}>
+                    <Link
+                      to={item.href}
+                      className={`notification-item is-${item.severity}`}
+                      onClick={() => {
+                        if (!item.read) markRead([item.id]);
+                        setOpen(false);
+                      }}
+                    >
+                      <span className="notification-dot" aria-hidden="true" />
+                      <span>
+                        <strong>{item.title}</strong>
+                        {item.detail ? <small>{item.detail}</small> : null}
+                      </span>
+                    </Link>
+                    {!item.read ? (
+                      <button
+                        type="button"
+                        className="notification-read-button"
+                        aria-label={`Mark ${item.title} as read`}
+                        title="Mark as read"
+                        onClick={() => markRead([item.id])}
+                      >
+                        ✓
+                      </button>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>
